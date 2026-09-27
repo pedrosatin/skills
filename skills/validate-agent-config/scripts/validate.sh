@@ -99,7 +99,7 @@ for e in "$AGENTS_SKILLS"/*; do
   [ -d "$e" ] && [ ! -L "$e" ] || continue
   c="$CLAUDE_SKILLS/$name"
   if [ -d "$c" ] && [ ! -L "$c" ]; then
-    case "$name" in ai-memory-*) ok ;; *) err "$name é diretório REAL nas duas raízes (drift): uma deve ser symlink" ;; esac
+    case "$name" in ai-memory-*) ok ;; *) err "$name é diretório REAL nas duas raízes (drift); uma deve ser symlink" ;; esac
   fi
 done
 
@@ -107,17 +107,17 @@ for e in "$CLAUDE_SKILLS"/*; do
   name="$(basename "$e")"
   [ -d "$e" ] && [ ! -L "$e" ] || continue
   case "$name" in ai-memory-*|synced) continue ;; esac
-  [ -e "$AGENTS_SKILLS/$name" ] || warn "$name é diretório real só em ~/.claude/skills: considere mover para ~/.agents/skills"
+  [ -e "$AGENTS_SKILLS/$name" ] || warn "$name é diretório real apenas em ~/.claude/skills; considere mover para ~/.agents/skills"
 done
 
 # ---------- 4. skills: lint de SKILL.md (convenções) ----------
 echo "== 4. Skills (lint de conteúdo)"
 for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
   for e in "$root"/*; do
+    [ -L "$e" ] && continue
     [ -f "$e/SKILL.md" ] || continue
-    [ -L "$e" ] && resolve "$e" >/dev/null || true
     name="$(basename "$e")"
-    real="$e"; [ -L "$e" ] && real="$(resolve "$e")"
+    real="$e"
     sk="$real/SKILL.md"
 
     # 4.1 ID: kebab-case, <=64 (padrão portável; OpenCode recomenda)
@@ -129,7 +129,21 @@ for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
     # 4.2 campos do frontmatter e paridade de name com o diretório
     head -c 2000 "$sk" | grep -q '^description:' || warn "$name: frontmatter sem description (skill não é anunciada ao modelo)"
     head -c 2000 "$sk" | grep -q '^name:' || warn "$name: frontmatter sem name"
-    fm_name="$(awk '/^name:/{sub(/^name:[[:space:]]*/,""); gsub(/^["'"'"']|["'"'"']$/,""); print; exit}' "$sk")"
+    fm_name="$(awk '
+      BEGIN { in_fm=0 }
+      /^---[[:space:]]*$/ {
+        if (!in_fm) { in_fm=1; next }
+        else exit
+      }
+      in_fm && /^name:[[:space:]]*/ {
+        sub(/^name:[[:space:]]*/, "")
+        sub(/^[[:space:]]+/, "")
+        sub(/^["'\''"]/, ""); sub(/["'\''"][[:space:]]*$/, "")
+        sub(/[[:space:]]+$/, "")
+        print
+        exit
+      }
+    ' "$sk")"
     if [ "$fm_name" = "$name" ]; then
       ok
     else
@@ -139,45 +153,57 @@ for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
     # extrai bloco completo de description (inclui blocos multilinha com | ou >)
     desc="$(awk '
       BEGIN { in_fm=0; in_desc=0 }
-      /^---$/ { if (!in_fm) { in_fm=1; next } else exit }
+      /^---[[:space:]]*$/ {
+        if (!in_fm) { in_fm=1; next }
+        else { exit }
+      }
       in_fm && /^description:[[:space:]]*/ {
         in_desc=1
-        sub(/^description:[[:space:]]*[|>-[0-9]*]?[[:space:]]*/, "")
+        sub(/^description:[[:space:]]*/, "")
+        if ($0 ~ /^[|>][-+0-9]*[[:space:]]*$/) next
+        sub(/^["'\''"]/, ""); sub(/["'\''"][[:space:]]*$/, "")
         if (length($0) > 0) print
         next
       }
       in_fm && in_desc {
-        if (/^[a-zA-Z0-9_-]+:[[:space:]]*/ || /^---$/) exit
-        print
+        if (/^[a-zA-Z0-9_-]+:[[:space:]]*/) exit
+        sub(/^[[:space:]]+/, "")
+        sub(/^["'\''"]/, ""); sub(/["'\''"][[:space:]]*$/, "")
+        if (length($0) > 0) print
       }
     ' "$sk")"
-    [ "${#desc}" -le 1024 ] || warn "$name: description com ${#desc} chars (imposto de contexto em toda sessão)"
+    [ "${#desc}" -le 1024 ] || warn "$name: description com ${#desc} chars (aumenta o consumo de tokens na janela de contexto de toda sessão)"
 
     # 4.3 paridade de invocação e verificação de gatilhos
     dmi="$(grep -c '^disable-model-invocation: *true' "$sk")"
     if [ -f "$real/agents/openai.yaml" ]; then
       pol="$(grep -c 'allow_implicit_invocation: *false' "$real/agents/openai.yaml")"
-      if [ "$dmi" -gt 0 ] && [ "$pol" -eq 0 ]; then warn "$name: user-invoked no SKILL.md mas agents/openai.yaml sem allow_implicit_invocation: false"; ok; fi
-      if [ "$dmi" -eq 0 ] && [ "$pol" -gt 0 ]; then warn "$name: user-invoked no openai.yaml mas SKILL.md sem disable-model-invocation: true"; ok; fi
+      if [ "$dmi" -gt 0 ] && [ "$pol" -eq 0 ]; then
+        warn "$name: user-invoked no SKILL.md mas agents/openai.yaml sem allow_implicit_invocation: false"
+      elif [ "$dmi" -eq 0 ] && [ "$pol" -gt 0 ]; then
+        warn "$name: user-invoked no openai.yaml mas SKILL.md sem disable-model-invocation: true"
+      else
+        ok
+      fi
     fi
     if [ "$dmi" -gt 0 ]; then
       # description de user-invoked não precisa de frases de trigger (face humana, não de modelo)
       if printf '%s' "$desc" | grep -qiE 'use when|use ao |aplique ao'; then
-        warn "$name: user-invoked com description de modelo (frases de trigger): para user-invoked a description é humana"
+        warn "$name: user-invoked com description de modelo (frases de trigger); para user-invoked a descrição destina-se ao operador"
       fi
     else
-      # skill model-invoked necessita de condições de acionamento claras na descrição
+      # skill model-invoked requer condições de acionamento claras na descrição
       if printf '%s\n' "$desc" | grep -qiE 'use when|quando|use ao|aplique ao'; then
         ok
       else
-        warn "$name: skill model-invoked necessita de condições de acionamento claras na descrição (termos: use when, quando, use ao, aplique ao)"
+        warn "$name: skill model-invoked requer condições de acionamento claras na descrição (termos: use when, quando, use ao, aplique ao)"
       fi
     fi
 
     # 4.4 alerta de sprawl e carga de contexto
     lines="$(wc -l < "$sk")"
     if [ "$lines" -gt 350 ] && [ ! -d "$real/references" ] && [ ! -d "$real/scripts" ]; then
-      warn "$name: SKILL.md com $lines linhas sem references/ ou scripts/ (recomenda-se progressive disclosure: mover blocos extensos para references/)"
+      warn "$name: SKILL.md com $lines linhas sem references/ ou scripts/ (recomenda-se mover blocos extensos para references/)"
     else
       ok
     fi
@@ -186,7 +212,7 @@ for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
     while IFS= read -r ref; do
       [ -n "$ref" ] || continue
       [ -e "$real/$ref" ] || warn "$name: ref interna não existe: $ref"
-    done < <(grep -oE '\((references|scripts|assets|agents)/[a-zA-Z0-9._/-]+\)' "$sk" | tr -d '()' | sort -u;
+    done < <(grep -oE '\]\((references|scripts|assets|agents)/[a-zA-Z0-9._/-]+\)' "$sk" | sed -E 's/^\]\(//; s/\)$//' | sort -u;
              grep -oE '`(references|scripts|assets|agents)/[a-zA-Z0-9._/-]+`' "$sk" | tr -d '`' | sort -u)
 
     # 4.6 dependências cross-skill nomeiam skills existentes
@@ -203,8 +229,8 @@ echo "== 5. Probes vivos"
 if command -v copilot >/dev/null 2>&1; then
   cout="$(cd "$HOME_DIR" && timeout -k 2s 5s copilot instruction list </dev/null 2>&1 || true)"
   if printf '%s' "$cout" | grep -q "AGENTS.md"; then ok
-  else warn "copilot instruction list (na home) não lista o ~/AGENTS.md: regra global não chega"; fi
-else warn "copilot não instalado: probe pulado"; fi
+  else warn "copilot instruction list (na home) não lista o ~/AGENTS.md; a regra global não será carregada"; fi
+else warn "copilot não instalado; probe pulado"; fi
 if command -v agent >/dev/null 2>&1; then ok; else warn "cursor CLI (agent) não instalado"; fi
 if command -v opencode >/dev/null 2>&1; then ok; else warn "opencode não instalado"; fi
 
@@ -214,6 +240,7 @@ if [ -d "$REPO/skills" ]; then
   [ -f "$REPO/ATTRIBUTION.md" ] && ok || err "repo sem ATTRIBUTION.md"
   [ -f "$REPO/LICENSE" ] && ok || err "repo sem LICENSE"
   for d in "$REPO"/skills/*/; do
+    [ -d "$d" ] || continue
     name="$(basename "$d")"
     # 6.1 toda skill do repo tem linha de atribuição
     grep -qE "(^|[^a-z0-9-])$name([^a-z0-9-]|$)" "$REPO/ATTRIBUTION.md" || warn "$name: sem entrada no ATTRIBUTION.md"
@@ -233,7 +260,7 @@ if [ -d "$REPO/skills" ]; then
     [ -d "$REPO/skills/$name" ] || warn "$name: autoral instalada mas sem versão no repo"
   done
 else
-  warn "repo $REPO não encontrado: sync pulado"
+  warn "repo $REPO não encontrado; sync pulado"
 fi
 
 # ---------- resultado ----------

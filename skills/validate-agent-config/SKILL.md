@@ -22,8 +22,8 @@ O que ele checa (nesta ordem):
 3. **Skills (estrutura)** nas raízes `~/.agents/skills` e `~/.claude/skills`:
    - symlink quebrado;
    - diretório sem `SKILL.md`;
-   - mesma skill como diretório real nas duas raízes (drift: uma deve ser
-     symlink da outra; exceção para `ai-memory-*`);
+   - mesma skill como diretório real nas duas raízes (drift; uma deve ser
+     symlink da outra, exceto para `ai-memory-*`);
    - diretório real em `~/.claude/skills` fora de `ai-memory-*` ou `synced`
      (deve morar em `~/.agents/skills` com symlink reverso).
 4. **Skills (lint de conteúdo)**:
@@ -40,7 +40,7 @@ O que ele checa (nesta ordem):
      `agents/`) que resolvem para arquivos existentes;
    - dependências entre skills que apontam para skills instaladas.
 5. **Probes vivos**:
-   - Copilot CLI (`copilot instruction list` com timeout forçado de 5s e entrada
+   - Copilot CLI (`copilot instruction list` com timeout de 5s e entrada
      nula para evitar travamento em terminal interativo);
    - presença dos executáveis `agent` e `opencode`.
 6. **Sincronização com o repositório**:
