@@ -11,7 +11,7 @@ Atualizações: sobrescreva a pasta e atualize o commit abaixo.
 | humanizer | [blader/humanizer](https://skills.sh/blader/humanizer) (ver `skills/humanizer/LICENSE`) | instalação via skills.sh | MIT © 2025 Siqi Chen |
 
 Autorais (MIT, este repo): unslop-br, publication-hygiene, babysit-prs,
-pr-loop, archify.
+pr-loop, archify, validate-agent-config.
 
 Exceção conhecida: `unslop` (EN) não está neste repo porque a versão local
 deriva de texto sem licença (pstack/unslop, cursor/plugins).
