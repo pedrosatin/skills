@@ -28,7 +28,8 @@ OpenCode lê `~/.agents/skills` nativamente; Claude Code via symlink
 (revisar/mesclar PRs abertas), `pr-loop` (loop de entrega com subagents e
 code review), `validate-agent-config` (validação de entry points e paridade de skills).
 
-**Vendored MIT** (ver `ATTRIBUTION.md`): `archify` (diagramas de
+**Vendored / Ferramentas** (ver `ATTRIBUTION.md`): `graphify` (grafo de
+conhecimento e navegação de codebase, Graphify-Labs, Apache-2.0), `archify` (diagramas de
 arquitetura em HTML/SVG interativo, tt-a1i), fluxo de planejamento do Matt
 Pocock (`grill-me`, `grilling`, `to-spec`, `to-tickets`, `research`,
 `teach`), engenharia do Addy Osmani (`spec-driven-development`,
