@@ -84,6 +84,8 @@ fi
 # 3. Fall back to python3
 if [ -z "$PYTHON" ]; then PYTHON="python3"; fi
 if ! "$PYTHON" -c "import graphify" 2>/dev/null; then
+    # Se graphify não estiver instalado, pergunte ao operador antes de prosseguir com a instalação
+    # ("Graphify não está instalado neste ambiente. Deseja instalar via 'uv tool install graphifyy' ou 'pip install graphifyy'?")
     if command -v uv >/dev/null 2>&1; then
         uv tool install --upgrade graphifyy -q 2>&1 | tail -3
         _UV_PY=$(uv tool run --from graphifyy python -c "import sys; print(sys.executable)" 2>/dev/null)
@@ -96,8 +98,14 @@ fi
 # Write interpreter path for all subsequent steps (persists across invocations)
 mkdir -p graphify-out
 "$PYTHON" -c "import sys; open('graphify-out/.graphify_python', 'w', encoding='utf-8').write(sys.executable)"
-# Save scan root so `graphify update` (no args) knows where to look next time
-echo "$(cd INPUT_PATH && pwd)" > graphify-out/.graphify_root
+# Save scan root so `graphify update` (no args) knows where to look next time.
+# The scan path is passed through a quoted heredoc, never substituted into the
+# command line itself: a bare `cd <path>` (or an unquoted heredoc, which
+# still expands $()/backticks in its body) would let a malicious path execute
+# as shell code the moment this line runs.
+"$PYTHON" -c "import os, sys; out_path = os.path.abspath('graphify-out/.graphify_root'); os.chdir(sys.stdin.readline().rstrip('\n')); open(out_path, 'w', encoding='utf-8').write(os.getcwd())" <<'GRAPHIFY_ROOT_EOF'
+INPUT_PATH
+GRAPHIFY_ROOT_EOF
 ```
 
 If the import succeeds, print nothing and move straight to Step 2.
