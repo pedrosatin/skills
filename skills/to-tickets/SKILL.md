@@ -74,6 +74,12 @@ node ~/.agents/skills/setup/scripts/generate-hub.mjs
 ```
 Provide the user with the clickable dashboard link (`file://.../.scratch/index.html`).
 
+### 7. Ticket execution guidance
+
+When an agent is asked to implement tickets from this tracker:
+- Prefer executing each ticket in a dedicated subagent with a fresh context window.
+- The main agent orchestrates: picks the unblocked ticket from the frontier, reviews the subagent's changes against criteria, marks it `resolved`, and refreshes the dashboard.
+
 <local-ticket-template>
 
 # <NN>: <Ticket title>
