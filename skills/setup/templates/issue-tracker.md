@@ -42,5 +42,9 @@ Read the file at the referenced path. The user or prompt will normally pass the 
 
 ## Claiming and Resolving Tickets
 
+- **Preferência por Subagents**: Ao implementar um ticket, o agente principal deve preferencialmente despachar um subagent dedicado para implementar a fatia vertical com contexto limpo e focado. O agente principal atua como orquestrador, mantendo o diálogo com o operador.
 - **Claim**: set `Status: claimed` in the ticket file before starting work.
-- **Resolve**: ensure all acceptance criteria are checked (`- [x]`), set `Status: resolved`, and run the dashboard refresh script.
+- **Resolve**: ensure all acceptance criteria are checked (`- [x]`), set `Status: resolved`, and run the dashboard refresh script:
+  ```bash
+  node ~/.agents/skills/setup/scripts/generate-hub.mjs
+  ```
