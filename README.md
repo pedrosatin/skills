@@ -26,7 +26,8 @@ OpenCode lê `~/.agents/skills` nativamente; Claude Code via symlink
 **Autorais** — `unslop-br` (anti-AI-slop PT-BR), `publication-hygiene`
 (valida commit/PR sem proveniência de agente antes do push), `babysit-prs`
 (revisar/mesclar PRs abertas), `pr-loop` (loop de entrega com subagents e
-code review), `validate-agent-config` (validação de entry points e paridade de skills).
+code review), `validate-agent-config` (validação de entry points e paridade de skills),
+`setup` (inicialização de projeto, specs/tickets locais e Project Hub HTML).
 
 **Vendored / Ferramentas** (ver `ATTRIBUTION.md`): `graphify` (grafo de
 conhecimento e navegação de codebase, Graphify-Labs, Apache-2.0), `archify` (diagramas de
