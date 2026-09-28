@@ -26,9 +26,10 @@ OpenCode lê `~/.agents/skills` nativamente; Claude Code via symlink
 **Autorais** — `unslop-br` (anti-AI-slop PT-BR), `publication-hygiene`
 (valida commit/PR sem proveniência de agente antes do push), `babysit-prs`
 (revisar/mesclar PRs abertas), `pr-loop` (loop de entrega com subagents e
-code review), `archify` (diagramas de arquitetura em HTML/SVG).
+code review), `validate-agent-config` (validação de entry points e paridade de skills).
 
-**Vendored MIT** (ver `ATTRIBUTION.md`): fluxo de planejamento do Matt
+**Vendored MIT** (ver `ATTRIBUTION.md`): `archify` (diagramas de
+arquitetura em HTML/SVG interativo, tt-a1i), fluxo de planejamento do Matt
 Pocock (`grill-me`, `grilling`, `to-spec`, `to-tickets`, `research`,
 `teach`), engenharia do Addy Osmani (`spec-driven-development`,
 `code-review-and-quality`, `documentation-and-adrs`,
