@@ -2,17 +2,29 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const flags = new Set(args.filter(a => a.startsWith('--')));
 const positional = args.filter(a => !a.startsWith('--'));
 
-const repoRoot = path.resolve(positional[0] || process.cwd());
+const useFixture = flags.has('--fixture');
+const skillDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const fixtureDir = path.join(skillDir, 'fixtures', 'minimal-scratch');
+
+// --fixture: collect from skill fixtures/, write hub-fixture.html beside them
+const repoRoot = useFixture
+  ? fixtureDir
+  : path.resolve(positional[0] || process.cwd());
 const useDocsDir = flags.has('--docs');
 const shouldOpen = flags.has('--open');
 
-const outputDir = useDocsDir ? path.join(repoRoot, 'docs') : path.join(repoRoot, '.scratch');
-const outputFile = path.join(outputDir, 'index.html');
+const outputDir = useFixture
+  ? path.join(skillDir, 'fixtures')
+  : (useDocsDir ? path.join(repoRoot, 'docs') : path.join(repoRoot, '.scratch'));
+const outputFile = useFixture
+  ? path.join(outputDir, 'hub-fixture.html')
+  : path.join(outputDir, 'index.html');
 
 // 1. Gather Project Info
 let projectName = path.basename(repoRoot);
@@ -23,6 +35,287 @@ try {
     if (pkg.name) projectName = pkg.name;
   }
 } catch {}
+
+// 1b. Infer project brand accent (CSS vars, theme-color, Tailwind) → hub tokens
+const DEFAULT_ACCENT = '#22c55e';
+const DEFAULT_ACCENT_FG = '#09090b';
+
+function normalizeHex(raw) {
+  if (!raw) return null;
+  let h = String(raw).trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{3}$/.test(h)) {
+    h = h.split('').map((c) => c + c).join('');
+  }
+  if (/^[0-9a-fA-F]{8}$/.test(h)) h = h.slice(0, 6);
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return `#${h.toLowerCase()}`;
+}
+
+function parseRgb(hex) {
+  const h = normalizeHex(hex);
+  if (!h) return null;
+  return {
+    r: parseInt(h.slice(1, 3), 16),
+    g: parseInt(h.slice(3, 5), 16),
+    b: parseInt(h.slice(5, 7), 16),
+  };
+}
+
+function relativeLuminance(hex) {
+  const rgb = parseRgb(hex);
+  if (!rgb) return 0;
+  const lin = (c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b);
+}
+
+function hexChroma(hex) {
+  const rgb = parseRgb(hex);
+  if (!rgb) return 0;
+  const max = Math.max(rgb.r, rgb.g, rgb.b);
+  const min = Math.min(rgb.r, rgb.g, rgb.b);
+  return (max - min) / 255;
+}
+
+function contrastRatio(hexA, hexB) {
+  const l1 = relativeLuminance(hexA);
+  const l2 = relativeLuminance(hexB);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function accentFgFor(hex) {
+  const dark = DEFAULT_ACCENT_FG;
+  const light = '#fafafa';
+  return contrastRatio(hex, dark) >= contrastRatio(hex, light) ? dark : light;
+}
+
+function isUsableBrandHex(hex) {
+  const n = normalizeHex(hex);
+  if (!n) return false;
+  const L = relativeLuminance(n);
+  const C = hexChroma(n);
+  // Near-white chrome
+  if (L > 0.92) return false;
+  // Near-black/near-gray: L baixa só rejeita com croma baixa; marca escura com croma alta passa
+  if (L < 0.08 && C < 0.12) return false;
+  if (C < 0.12) return false;
+  return true;
+}
+
+function extractHexFromCssValue(value) {
+  if (!value) return null;
+  const v = String(value).trim();
+  const ld = v.match(/light-dark\s*\(\s*(#[0-9a-fA-F]{3,8})\s*,\s*(#[0-9a-fA-F]{3,8})\s*\)/i);
+  if (ld) {
+    // Hub is dark: prefer the dark leg of light-dark()
+    const dark = normalizeHex(ld[2]);
+    if (isUsableBrandHex(dark)) return dark;
+    const light = normalizeHex(ld[1]);
+    if (isUsableBrandHex(light)) return light;
+  }
+  const hex = v.match(/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/);
+  if (hex) {
+    const n = normalizeHex(hex[0]);
+    if (isUsableBrandHex(n)) return n;
+  }
+  const rgb = v.match(/rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i);
+  if (rgb) {
+    const toHex = (n) => Math.max(0, Math.min(255, Number(n))).toString(16).padStart(2, '0');
+    const n = normalizeHex(`#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`);
+    if (isUsableBrandHex(n)) return n;
+  }
+  return null;
+}
+
+const BRAND_VAR_SCORE = [
+  [/^--(?:color-)?primary$/i, 100],
+  [/^--brand(?:-color)?$/i, 98],
+  [/^--color-brand$/i, 97],
+  [/^--(?:color-)?action$/i, 94],
+  [/^--accent-regular$/i, 92],
+  [/^--(?:color-)?accent$/i, 90],
+  [/^--color-theme$/i, 88],
+  [/^--accent-light$/i, 86],
+  [/^--gold$/i, 84],
+  [/^--(?:color-)?link$/i, 70],
+  [/^--msapplication-tilecolor$/i, 60],
+];
+
+const BRAND_VAR_SKIP = /success|error|danger|warning|hit|miss|near|found|level|gray|grey|muted|text|border|canvas|surface|overlay|background|foreground|bg\b|fg\b|shadow|hit-hc|near-hc/i;
+
+function scoreBrandVar(name) {
+  if (BRAND_VAR_SKIP.test(name)) return 0;
+  for (const [re, score] of BRAND_VAR_SCORE) {
+    if (re.test(name)) return score;
+  }
+  if (/primary|brand|accent|action|gold|theme/i.test(name)) return 50;
+  return 0;
+}
+
+function collectThemeFiles(root) {
+  const SKIP = new Set([
+    'node_modules', '.git', 'dist', 'build', 'coverage', 'vendor',
+    '.scratch', 'graphify-out', '.next', 'out', 'target', '.turbo',
+    '.cache', '.archify', 'fixtures', 'storybook-static',
+  ]);
+  const files = [];
+  const maxFiles = 100;
+  const walk = (dir, depth) => {
+    if (files.length >= maxFiles || depth > 5) return;
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (files.length >= maxFiles) return;
+      const name = e.name;
+      if (name.startsWith('.') && name !== '.scratch') {
+        if (e.isDirectory()) continue;
+      }
+      const full = path.join(dir, name);
+      if (e.isDirectory()) {
+        if (SKIP.has(name)) continue;
+        walk(full, depth + 1);
+      } else if (e.isFile()) {
+        const lower = name.toLowerCase();
+        const ok =
+          lower.endsWith('.css') ||
+          lower.endsWith('.scss') ||
+          lower.endsWith('.sass') ||
+          lower === 'index.html' ||
+          /^tailwind\.config\.(js|cjs|mjs|ts)$/.test(lower) ||
+          lower === 'globals.css' ||
+          lower === 'global.css' ||
+          lower === 'variables.css' ||
+          lower === 'tokens.css' ||
+          lower === 'tokens.scss';
+        if (ok) files.push(full);
+      }
+    }
+  };
+  // Prefer shallow brand surfaces first
+  const preferred = [
+    'index.html',
+    'public/index.html',
+    'src/index.css',
+    'src/styles/global.css',
+    'src/styles/globals.css',
+    'src/styles/tokens.css',
+    'src/styles/variables.css',
+    'styles.css',
+    'web/index.html',
+    'web/src/styles/variables.css',
+    'web/src/styles/tokens.css',
+    'app/globals.css',
+    'tailwind.config.js',
+    'tailwind.config.ts',
+    'tailwind.config.mjs',
+    'tailwind.config.cjs',
+  ];
+  for (const rel of preferred) {
+    const full = path.join(root, rel);
+    if (fs.existsSync(full) && fs.statSync(full).isFile()) files.push(full);
+  }
+  walk(root, 0);
+  return [...new Set(files)];
+}
+
+function inferProjectTheme(root) {
+  const fallback = {
+    accent: DEFAULT_ACCENT,
+    accentFg: DEFAULT_ACCENT_FG,
+    source: 'default',
+  };
+  if (useFixture) return fallback;
+
+  const candidates = []; // { hex, score, source }
+
+  const push = (hex, score, source) => {
+    const n = normalizeHex(hex);
+    if (!n || !isUsableBrandHex(n)) return;
+    candidates.push({ hex: n, score, source });
+  };
+
+  const files = collectThemeFiles(root);
+  for (const file of files) {
+    let text = '';
+    try {
+      const st = fs.statSync(file);
+      if (st.size > 400_000) continue;
+      text = fs.readFileSync(file, 'utf8');
+    } catch {
+      continue;
+    }
+    const base = path.basename(file).toLowerCase();
+    const rel = path.relative(root, file).split(path.sep).join('/');
+
+    // meta theme-color / tile / mask-icon (skip pure bg chrome later via isUsableBrandHex)
+    if (base.endsWith('.html')) {
+      const themeColor = text.match(/<meta\s+[^>]*name=["']theme-color["'][^>]*content=["']([^"']+)["']/i)
+        || text.match(/<meta\s+[^>]*content=["']([^"']+)["'][^>]*name=["']theme-color["']/i);
+      if (themeColor) push(themeColor[1], 55, `meta:theme-color@${rel}`);
+      const tile = text.match(/<meta\s+[^>]*name=["']msapplication-TileColor["'][^>]*content=["']([^"']+)["']/i)
+        || text.match(/<meta\s+[^>]*content=["']([^"']+)["'][^>]*name=["']msapplication-TileColor["']/i);
+      if (tile) push(tile[1], 58, `meta:tile@${rel}`);
+      const mask = text.match(/<link\s+[^>]*rel=["']mask-icon["'][^>]*color=["']([^"']+)["']/i)
+        || text.match(/<link\s+[^>]*color=["']([^"']+)["'][^>]*rel=["']mask-icon["']/i);
+      if (mask) push(mask[1], 62, `mask-icon@${rel}`);
+    }
+
+    // CSS custom properties
+    const varRe = /(--[A-Za-z0-9-_]+)\s*:\s*([^;{}]+)/g;
+    let m;
+    while ((m = varRe.exec(text)) !== null) {
+      const name = m[1];
+      const score = scoreBrandVar(name);
+      if (score <= 0) continue;
+      const hex = extractHexFromCssValue(m[2]);
+      if (hex) push(hex, score, `css:${name}@${rel}`);
+    }
+
+    // Tailwind theme primary
+    if (/^tailwind\.config\./.test(base)) {
+      const primaryBlock = text.match(/primary\s*:\s*\{([^}]{0,800})\}/);
+      if (primaryBlock) {
+        const def = primaryBlock[1].match(/DEFAULT\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i)
+          || primaryBlock[1].match(/500\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i)
+          || primaryBlock[1].match(/['"](#[0-9a-fA-F]{3,8})['"]/);
+        if (def) push(def[1], 96, `tailwind:primary@${rel}`);
+      }
+      const primaryFlat = text.match(/primary\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i);
+      if (primaryFlat) push(primaryFlat[1], 96, `tailwind:primary@${rel}`);
+    }
+
+    // Class selectors that usually carry brand paint (no CSS vars)
+    if (/\.(css|scss|sass)$/i.test(base) || base.endsWith('.html')) {
+      const classRe = /\.(brand-mark|btn-primary|button-primary|primary|brand)[^{.]*\{([^}]{0,400})\}/gi;
+      let cm;
+      while ((cm = classRe.exec(text)) !== null) {
+        const hex = extractHexFromCssValue(cm[2])
+          || (cm[2].match(/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/) || [])[0];
+        if (hex) push(hex, 75, `class:.${cm[1]}@${rel}`);
+      }
+    }
+  }
+
+  if (!candidates.length) return fallback;
+
+  candidates.sort((a, b) => b.score - a.score || hexChroma(b.hex) - hexChroma(a.hex));
+  const best = candidates[0];
+  return {
+    accent: best.hex,
+    accentFg: accentFgFor(best.hex),
+    source: best.source,
+  };
+}
+
+const projectTheme = inferProjectTheme(repoRoot);
 
 // 2. Discover Rules File
 let rulesFile = null;
@@ -41,6 +334,9 @@ const graphHtmlPath = path.join(repoRoot, 'graphify-out', 'graph.html');
 const graphReportPath = path.join(repoRoot, 'graphify-out', 'GRAPH_REPORT.md');
 const hasGraph = fs.existsSync(graphHtmlPath);
 const graphReport = fs.existsSync(graphReportPath) ? fs.readFileSync(graphReportPath, 'utf8') : '';
+const graphHtmlRel = hasGraph
+  ? path.relative(outputDir, graphHtmlPath).split(path.sep).join('/')
+  : '';
 
 // 4. Discover Archify Diagrams
 const archifyDiagrams = [];
@@ -55,7 +351,7 @@ if (fs.existsSync(archifyDir)) {
         else if (e.isFile() && e.name.endsWith('.html') && !e.name.startsWith('.')) {
           archifyDiagrams.push({
             name: e.name,
-            relPath: path.relative(repoRoot, full),
+            relPath: path.relative(outputDir, full).split(path.sep).join('/'),
             mtime: fs.statSync(full).mtime.toISOString(),
           });
         }
@@ -67,7 +363,8 @@ if (fs.existsSync(archifyDir)) {
 
 // 5. Discover Specs
 const specs = [];
-const scratchDir = path.join(repoRoot, '.scratch');
+// Fixture tree is already the scratch layout (feature/issues), not repo/.scratch
+const scratchDir = useFixture ? repoRoot : path.join(repoRoot, '.scratch');
 const docsSpecsDir = path.join(repoRoot, 'docs', 'specs');
 
 function parseSpecFile(filePath, featureName) {
@@ -299,7 +596,194 @@ const metrics = {
   updatedAt: new Date().toISOString(),
 };
 
-// 8. Generate Standalone HTML
+// 8. Markdown mini-parser (allowlist only; raw HTML escaped)
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function isSafeHref(href) {
+  const h = String(href || '').trim();
+  if (!h) return false;
+  if (h.startsWith('#')) return true;
+  // Protocol-relative (//evil.com) e esquemas não-http
+  if (h.startsWith('//')) return false;
+  // Relative path without a scheme (no ":")
+  if (!h.includes(':')) return true;
+  try {
+    const u = new URL(h);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function renderInline(text) {
+  const stashed = [];
+  const stash = (html) => {
+    const key = `\uE000${stashed.length}\uE001`;
+    stashed.push(html);
+    return key;
+  };
+
+  let s = String(text);
+
+  s = s.replace(/`([^`\n]+)`/g, (_, code) => stash(`<code>${escapeHtml(code)}</code>`));
+
+  s = s.replace(/\[([^\]]+)\]\(([^)]*)\)/g, (full, label, href) => {
+    const h = href.trim();
+    if (!isSafeHref(h)) return full;
+    return stash(`<a href="${escapeHtml(h)}">${renderInlineBasic(label)}</a>`);
+  });
+
+  s = escapeHtml(s);
+  s = applyEmphasis(s);
+  s = s.replace(/\uE000(\d+)\uE001/g, (_, i) => stashed[Number(i)]);
+  return s;
+}
+
+function renderInlineBasic(text) {
+  let s = String(text);
+  const stashed = [];
+  const stash = (html) => {
+    const key = `\uE000${stashed.length}\uE001`;
+    stashed.push(html);
+    return key;
+  };
+  s = s.replace(/`([^`\n]+)`/g, (_, code) => stash(`<code>${escapeHtml(code)}</code>`));
+  s = escapeHtml(s);
+  s = applyEmphasis(s);
+  s = s.replace(/\uE000(\d+)\uE001/g, (_, i) => stashed[Number(i)]);
+  return s;
+}
+
+function applyEmphasis(s) {
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>');
+  s = s.replace(/(^|[^A-Za-z0-9_])_([^_]+)_(?![A-Za-z0-9_])/g, '$1<em>$2</em>');
+  return s;
+}
+
+function isMdBlockStart(line) {
+  if (/^\s*$/.test(line)) return true;
+  if (/^```/.test(line)) return true;
+  if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) return true;
+  if (/^#{1,6}\s+/.test(line)) return true;
+  if (/^>\s?/.test(line)) return true;
+  if (/^\s*[-*]\s+/.test(line)) return true;
+  if (/^\s*\d+\.\s+/.test(line)) return true;
+  return false;
+}
+
+function renderMarkdown(md) {
+  if (!md) return '';
+  const lines = String(md).replace(/\r\n/g, '\n').split('\n');
+  const out = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    const fence = line.match(/^```(\w*)\s*$/);
+    if (fence) {
+      const buf = [];
+      i++;
+      while (i < lines.length && !/^```\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      out.push(`<pre><code>${escapeHtml(buf.join('\n'))}</code></pre>`);
+      continue;
+    }
+
+    if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      out.push('<hr>');
+      i++;
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length;
+      out.push(`<h${level}>${renderInline(heading[2].trim())}</h${level}>`);
+      i++;
+      continue;
+    }
+
+    if (/^>\s?/.test(line)) {
+      const buf = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) {
+        buf.push(lines[i].replace(/^>\s?/, ''));
+        i++;
+      }
+      out.push(`<blockquote>${renderMarkdown(buf.join('\n'))}</blockquote>`);
+      continue;
+    }
+
+    const ulStart = line.match(/^(\s*)([-*])\s+(.*)$/);
+    const olStart = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
+    if (ulStart || olStart) {
+      const ordered = !!olStart;
+      const tag = ordered ? 'ol' : 'ul';
+      const items = [];
+      while (i < lines.length) {
+        const u = lines[i].match(/^(\s*)([-*])\s+(.*)$/);
+        const o = lines[i].match(/^(\s*)(\d+)\.\s+(.*)$/);
+        if (ordered) {
+          if (!o) break;
+          items.push(o[3]);
+        } else {
+          if (!u) break;
+          items.push(u[3]);
+        }
+        i++;
+      }
+      const lis = items.map((raw) => {
+        const task = raw.match(/^\[([ xX])\]\s+(.*)$/);
+        if (task) {
+          const checked = task[1].toLowerCase() === 'x' ? ' checked' : '';
+          return `<li><input type="checkbox" disabled${checked}> ${renderInline(task[2])}</li>`;
+        }
+        return `<li>${renderInline(raw)}</li>`;
+      });
+      out.push(`<${tag}>${lis.join('')}</${tag}>`);
+      continue;
+    }
+
+    if (/^\s*$/.test(line)) {
+      i++;
+      continue;
+    }
+
+    const buf = [line];
+    i++;
+    while (i < lines.length && !isMdBlockStart(lines[i])) {
+      buf.push(lines[i]);
+      i++;
+    }
+    out.push(`<p>${renderInline(buf.join(' '))}</p>`);
+  }
+
+  return out.join('\n');
+}
+
+for (const t of tickets) {
+  t.contentHtml = renderMarkdown(t.content);
+}
+for (const s of specs) {
+  s.contentHtml = renderMarkdown(s.content);
+}
+const rulesHtml = rulesContent ? renderMarkdown(rulesContent) : '';
+const graphReportHtml = graphReport ? renderMarkdown(graphReport) : '';
+
+// 9. Generate Standalone HTML
 const payload = {
   projectName,
   repoRoot,
@@ -319,18 +803,21 @@ const html = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(projectName)} — Project Hub</title>
+  <title>${escapeHtml(projectName)} · Project Hub</title>
+  <meta name="project-hub-theme-source" content="${escapeHtml(projectTheme.source)}">
   <style>
     :root {
-      --bg: #090a0f;
-      --surface: #12131c;
-      --surface-hover: #181a27;
-      --surface-border: #23263b;
-      --text: #e2e8f0;
-      --text-muted: #8e95ad;
-      --primary: #6366f1;
-      --primary-light: #818cf8;
-      --success: #10b981;
+      --bg: #09090b;
+      --surface: #18181b;
+      --surface-hover: #27272a;
+      --surface-border: #3f3f46;
+      --text: #e4e4e7;
+      --text-muted: #a1a1aa;
+      --primary: #71717a;
+      --primary-light: #a1a1aa;
+      --accent: ${projectTheme.accent};
+      --accent-fg: ${projectTheme.accentFg};
+      --success: ${projectTheme.accent};
       --warning: #f59e0b;
       --danger: #ef4444;
       --info: #06b6d4;
@@ -366,11 +853,15 @@ const html = `<!DOCTYPE html>
       font-size: 0.75rem;
       font-weight: 600;
       border: 1px solid var(--surface-border);
-      background: #181926;
+      background: #27272a;
       color: var(--text-muted);
     }
-    .badge.success { border-color: rgba(16, 185, 129, 0.4); color: #34d399; background: rgba(16, 185, 129, 0.1); }
-    .badge.primary { border-color: rgba(99, 102, 241, 0.4); color: #818cf8; background: rgba(99, 102, 241, 0.1); }
+    .badge.success {
+      border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      color: color-mix(in srgb, var(--accent) 72%, white);
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+    .badge.primary { border-color: rgba(113, 113, 122, 0.4); color: #a1a1aa; background: rgba(113, 113, 122, 0.1); }
     .badge.warning { border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; background: rgba(245, 158, 11, 0.1); }
     .badge.danger { border-color: rgba(239, 68, 68, 0.4); color: #f87171; background: rgba(239, 68, 68, 0.1); }
     
@@ -397,11 +888,12 @@ const html = `<!DOCTYPE html>
       transition: all 0.15s ease;
     }
     .tab-btn:hover { color: #fff; background: var(--surface-hover); }
-    .tab-btn.active { color: #fff; background: var(--primary); }
+    .tab-btn.active { color: #fff; background: var(--surface-hover); box-shadow: inset 0 -2px 0 var(--accent); }
 
     main { flex: 1; padding: 1.5rem; max-width: 1600px; width: 100%; margin: 0 auto; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+    .tab-content[hidden] { display: none !important; }
 
     /* Board Controls */
     .board-controls {
@@ -424,8 +916,8 @@ const html = `<!DOCTYPE html>
       font-weight: 500;
       transition: all 0.15s ease;
     }
-    .filter-pill:hover { color: #fff; border-color: var(--primary); }
-    .filter-pill.active { background: var(--surface-hover); color: var(--primary-light); border-color: var(--primary); font-weight: 700; }
+    .filter-pill:hover { color: #fff; border-color: var(--primary-light); }
+    .filter-pill.active { background: var(--surface-hover); color: #fff; border-color: var(--accent); font-weight: 700; }
     .search-input {
       background: var(--surface);
       border: 1px solid var(--surface-border);
@@ -435,14 +927,22 @@ const html = `<!DOCTYPE html>
       font-size: 0.875rem;
       min-width: 240px;
     }
-    .search-input:focus { outline: none; border-color: var(--primary); }
+    .search-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+    .tab-btn:focus-visible,
+    .filter-pill:focus-visible,
+    .btn-copy:focus-visible,
+    .side-panel-close:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
 
     /* Kanban Grid */
     .kanban-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(280px, 300px));
       gap: 1rem;
       align-items: start;
+      justify-content: start;
     }
     .kanban-col {
       background: var(--surface);
@@ -452,7 +952,9 @@ const html = `<!DOCTYPE html>
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
-      min-height: 400px;
+      width: 100%;
+      max-width: 300px;
+      min-height: 0;
     }
     .col-header {
       display: flex;
@@ -475,7 +977,7 @@ const html = `<!DOCTYPE html>
 
     /* Ticket Card */
     .ticket-card {
-      background: #171926;
+      background: #1c1c1f;
       border: 1px solid var(--surface-border);
       border-radius: 8px;
       padding: 0.9rem;
@@ -483,18 +985,27 @@ const html = `<!DOCTYPE html>
       flex-direction: column;
       gap: 0.6rem;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: border-color 0.15s ease, background 0.15s ease;
       position: relative;
+      width: 100%;
+      text-align: left;
+      font: inherit;
+      color: inherit;
     }
     .ticket-card:hover {
-      border-color: var(--primary);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      border-color: var(--primary-light);
+      background: var(--surface-hover);
+    }
+    .ticket-card:focus { outline: none; }
+    .ticket-card:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-color: var(--accent);
     }
     .card-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
     .card-feature {
       font-size: 0.7rem;
-      background: rgba(99, 102, 241, 0.15);
+      background: rgba(113, 113, 122, 0.2);
       color: var(--primary-light);
       padding: 0.15rem 0.45rem;
       border-radius: 4px;
@@ -545,66 +1056,97 @@ const html = `<!DOCTYPE html>
       padding: 0.25rem 0.6rem;
       border-radius: 4px;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 0.3rem;
+      text-decoration: none;
+      box-sizing: border-box;
       transition: all 0.15s ease;
     }
-    .btn-copy:hover { color: #fff; background: var(--primary); border-color: var(--primary); }
+    .btn-copy:hover { color: #fff; background: var(--accent); border-color: var(--accent); }
 
-    /* Modal */
-    .modal-backdrop {
+    /* Side panel (drawer) */
+    .side-panel-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.35);
       z-index: 1000;
-      align-items: center;
-      justify-content: center;
-      padding: 1.5rem;
     }
-    .modal-backdrop.active { display: flex; }
-    .modal-box {
+    .side-panel-overlay.active { display: block; }
+    .side-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(480px, 100vw);
+      max-width: 520px;
+      min-width: min(440px, 100vw);
+      height: 100vh;
+      height: 100dvh;
       background: var(--surface);
-      border: 1px solid var(--surface-border);
-      border-radius: var(--radius);
-      width: 100%;
-      max-width: 800px;
-      max-height: 85vh;
+      border-left: 1px solid var(--surface-border);
+      z-index: 1001;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      transform: translateX(100%);
+      visibility: hidden;
+      transition: transform 0.2s ease, visibility 0.2s;
+      box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
     }
-    .modal-header {
-      padding: 1.25rem;
+    .side-panel.active {
+      transform: translateX(0);
+      visibility: visible;
+    }
+    .side-panel-header {
+      padding: 1rem 1.25rem;
       border-bottom: 1px solid var(--surface-border);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
     }
-    .modal-title { font-size: 1.15rem; font-weight: 700; color: #fff; }
-    .modal-close {
+    .side-panel-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.35;
+      margin: 0;
+    }
+    .side-panel-close {
       background: transparent;
-      border: none;
+      border: 1px solid transparent;
       color: var(--text-muted);
       font-size: 1.5rem;
       cursor: pointer;
       line-height: 1;
+      padding: 0.25rem 0.45rem;
+      border-radius: 6px;
+      flex-shrink: 0;
     }
-    .modal-body {
+    .side-panel-close:hover { color: #fff; background: var(--surface-hover); }
+    .side-panel-body {
       padding: 1.25rem;
       overflow-y: auto;
+      flex: 1;
       font-size: 0.9rem;
       line-height: 1.6;
     }
-    .modal-footer {
+    .side-panel-footer {
       padding: 1rem 1.25rem;
       border-top: 1px solid var(--surface-border);
       display: flex;
       justify-content: flex-end;
       gap: 0.75rem;
+      flex-shrink: 0;
+    }
+    @media (max-width: 768px) {
+      .side-panel {
+        width: 100vw;
+        max-width: 100vw;
+        min-width: 0;
+        border-left: none;
+      }
     }
 
     /* Specs & Other Tabs */
@@ -620,7 +1162,7 @@ const html = `<!DOCTYPE html>
     }
     .spec-header { display: flex; justify-content: space-between; align-items: baseline; }
     .spec-title { font-size: 1.1rem; font-weight: 700; color: #fff; }
-    .spec-section-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--primary-light); margin-top: 0.5rem; }
+    .spec-section-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-top: 0.5rem; }
     .spec-text { font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; }
 
     /* Toast */
@@ -628,19 +1170,23 @@ const html = `<!DOCTYPE html>
       position: fixed;
       bottom: 2rem;
       right: 2rem;
-      background: var(--primary);
-      color: #fff;
+      background: var(--accent);
+      color: var(--accent-fg);
       padding: 0.75rem 1.25rem;
       border-radius: 8px;
       font-weight: 600;
       font-size: 0.875rem;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
       transform: translateY(100px);
       opacity: 0;
-      transition: all 0.25s ease;
+      transition: transform 0.25s ease, opacity 0.25s ease;
       z-index: 2000;
+      pointer-events: none;
     }
     .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.error {
+      background: var(--danger);
+      color: #fff;
+    }
 
     pre {
       background: #0d0e15;
@@ -651,17 +1197,75 @@ const html = `<!DOCTYPE html>
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 0.85rem;
     }
+
+    .md-body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 0.925rem;
+      line-height: 1.65;
+      color: var(--text);
+      max-width: 72ch;
+    }
+    .md-body h1, .md-body h2, .md-body h3,
+    .md-body h4, .md-body h5, .md-body h6 {
+      color: #fff;
+      line-height: 1.3;
+      margin: 1.25em 0 0.5em;
+      font-weight: 650;
+    }
+    .md-body h1 { font-size: 1.5rem; }
+    .md-body h2 { font-size: 1.25rem; }
+    .md-body h3 { font-size: 1.1rem; }
+    .md-body h4, .md-body h5, .md-body h6 { font-size: 1rem; }
+    .md-body p { margin: 0.75em 0; }
+    .md-body ul, .md-body ol {
+      margin: 0.75em 0;
+      padding-left: 1.5em;
+    }
+    .md-body li { margin: 0.35em 0; }
+    .md-body li > input[type="checkbox"] {
+      margin-right: 0.5em;
+      vertical-align: middle;
+    }
+    .md-body blockquote {
+      margin: 0.75em 0;
+      padding: 0.15em 0 0.15em 1em;
+      border-left: 3px solid var(--surface-border);
+      color: var(--text-muted);
+    }
+    .md-body hr {
+      border: none;
+      border-top: 1px solid var(--surface-border);
+      margin: 1.5em 0;
+    }
+    .md-body a { color: var(--accent); text-decoration: underline; }
+    .md-body code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85em;
+      background: #0d0e15;
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      border: 1px solid var(--surface-border);
+    }
+    .md-body pre {
+      max-width: 100%;
+      line-height: 1.45;
+      white-space: pre;
+    }
+    .md-body pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: inherit;
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="header-left">
       <div class="project-title">
-        <span>📦</span>
         <span>${escapeHtml(projectName)}</span>
       </div>
-      <div class="badge primary">Hub v1.0</div>
-      ${hasGraph ? '<div class="badge success">🕸️ Graphify Ativo</div>' : '<div class="badge">🕸️ Sem Grafo</div>'}
+      ${hasGraph ? '<div class="badge success">Graphify ativo</div>' : '<div class="badge">Sem grafo</div>'}
     </div>
     <div class="header-right" style="display: flex; gap: 0.5rem;">
       <div class="badge">${metrics.totalSpecs} Specs</div>
@@ -669,30 +1273,30 @@ const html = `<!DOCTYPE html>
     </div>
   </header>
 
-  <nav class="nav-tabs">
-    <button class="tab-btn active" data-tab="tab-board">📋 Board Kanban</button>
-    <button class="tab-btn" data-tab="tab-specs">📖 Specs (${metrics.totalSpecs})</button>
-    <button class="tab-btn" data-tab="tab-graph">🕸️ Knowledge Graph</button>
-    <button class="tab-btn" data-tab="tab-rules">📄 Regras (${rulesFile || 'N/A'})</button>
-    ${archifyDiagrams.length > 0 ? `<button class="tab-btn" data-tab="tab-arch">🏛️ Arquitetura (${archifyDiagrams.length})</button>` : ''}
+  <nav class="nav-tabs" role="tablist" aria-label="Seções do hub">
+    <button type="button" class="tab-btn active" role="tab" id="tab-btn-board" data-tab="tab-board" aria-controls="tab-board" aria-selected="true">Board</button>
+    <button type="button" class="tab-btn" role="tab" id="tab-btn-specs" data-tab="tab-specs" aria-controls="tab-specs" aria-selected="false">Specs (${metrics.totalSpecs})</button>
+    <button type="button" class="tab-btn" role="tab" id="tab-btn-graph" data-tab="tab-graph" aria-controls="tab-graph" aria-selected="false">Knowledge Graph</button>
+    <button type="button" class="tab-btn" role="tab" id="tab-btn-rules" data-tab="tab-rules" aria-controls="tab-rules" aria-selected="false">Regras (${rulesFile || 'N/A'})</button>
+    ${archifyDiagrams.length > 0 ? `<button type="button" class="tab-btn" role="tab" id="tab-btn-arch" data-tab="tab-arch" aria-controls="tab-arch" aria-selected="false">Arquitetura (${archifyDiagrams.length})</button>` : ''}
   </nav>
 
   <main>
     <!-- TAB 1: BOARD -->
-    <div id="tab-board" class="tab-content active">
+    <div id="tab-board" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-board">
       <div class="board-controls">
         <div class="filter-pills" id="feature-filters">
           <button class="filter-pill active" data-feature="all">Todas as features (${tickets.length})</button>
           ${features.map(f => `<button class="filter-pill" data-feature="${escapeHtml(f)}">${escapeHtml(f)} (${tickets.filter(t => t.feature === f).length})</button>`).join('')}
         </div>
-        <input type="text" id="board-search" class="search-input" placeholder="🔍 Buscar tickets por título ou #ID...">
+        <input type="search" id="board-search" class="search-input" placeholder="Buscar tickets por título ou #ID..." aria-label="Buscar tickets por título ou ID">
       </div>
 
       <div class="kanban-grid">
         <!-- Backlog -->
         <div class="kanban-col" data-col="backlog">
           <div class="col-header">
-            <span>📥 Backlog</span>
+            <span>Backlog</span>
             <span class="col-count" id="count-backlog">0</span>
           </div>
           <div class="col-cards" id="cards-backlog"></div>
@@ -701,7 +1305,7 @@ const html = `<!DOCTYPE html>
         <!-- Blocked -->
         <div class="kanban-col" data-col="blocked">
           <div class="col-header" style="color: var(--danger);">
-            <span>⛔ Bloqueado</span>
+            <span>Bloqueado</span>
             <span class="col-count" id="count-blocked">0</span>
           </div>
           <div class="col-cards" id="cards-blocked"></div>
@@ -709,8 +1313,8 @@ const html = `<!DOCTYPE html>
 
         <!-- Ready for Agent -->
         <div class="kanban-col" data-col="ready-for-agent">
-          <div class="col-header" style="color: var(--primary-light);">
-            <span>⚡ Ready for Agent</span>
+          <div class="col-header" style="color: var(--accent);">
+            <span>Ready for Agent</span>
             <span class="col-count" id="count-ready-for-agent">0</span>
           </div>
           <div class="col-cards" id="cards-ready-for-agent"></div>
@@ -719,7 +1323,7 @@ const html = `<!DOCTYPE html>
         <!-- In Progress -->
         <div class="kanban-col" data-col="in-progress">
           <div class="col-header" style="color: var(--warning);">
-            <span>⏳ Em Andamento</span>
+            <span>Em andamento</span>
             <span class="col-count" id="count-in-progress">0</span>
           </div>
           <div class="col-cards" id="cards-in-progress"></div>
@@ -728,7 +1332,7 @@ const html = `<!DOCTYPE html>
         <!-- Done -->
         <div class="kanban-col" data-col="done">
           <div class="col-header" style="color: var(--success);">
-            <span>✅ Concluído</span>
+            <span>Concluído</span>
             <span class="col-count" id="count-done">0</span>
           </div>
           <div class="col-cards" id="cards-done"></div>
@@ -737,7 +1341,7 @@ const html = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 2: SPECS -->
-    <div id="tab-specs" class="tab-content">
+    <div id="tab-specs" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-specs" hidden>
       <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
         <h2 style="font-size: 1.1rem; color: #fff;">Especificações de Features</h2>
         <span class="badge">${specs.length} encontradas</span>
@@ -747,7 +1351,7 @@ const html = `<!DOCTYPE html>
         ${specs.map((s, idx) => `
           <div class="spec-card">
             <div class="spec-header">
-              <span class="spec-title">📖 ${escapeHtml(s.title)}</span>
+              <span class="spec-title">${escapeHtml(s.title)}</span>
               <span class="card-feature">${escapeHtml(s.feature)}</span>
             </div>
             ${s.problem ? `
@@ -760,7 +1364,7 @@ const html = `<!DOCTYPE html>
             ` : ''}
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--surface-border);">
               <span style="font-size: 0.75rem; color: var(--text-muted);">${s.storiesCount} User Stories declaradas</span>
-              <button class="btn-copy" onclick="openSpecModal(${idx})">Ver Spec Completa ↗</button>
+              <button type="button" class="btn-copy" data-action="open-spec" data-spec-idx="${idx}">Ver Spec Completa</button>
             </div>
           </div>
         `).join('')}
@@ -768,32 +1372,29 @@ const html = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 3: GRAPHIFY -->
-    <div id="tab-graph" class="tab-content">
+    <div id="tab-graph" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-graph" hidden>
       <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
         <div>
           <h2 style="font-size: 1.1rem; color: #fff;">Grafo de Conhecimento (Graphify)</h2>
           <p style="font-size: 0.85rem; color: var(--text-muted);">Estrutura de dependências, comunidades de código e nós centrais do projeto.</p>
         </div>
         ${hasGraph ? `
-          <a href="../graphify-out/graph.html" target="_blank" style="text-decoration: none;">
-            <button class="btn-copy" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: var(--primary); color: #fff; border-color: var(--primary);">
-              Abrir Grafo Interativo Completo em Nova Aba ↗
-            </button>
+          <a class="btn-copy" href="${escapeHtml(graphHtmlRel)}" target="_blank" rel="noopener" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: var(--accent); color: var(--accent-fg); border-color: var(--accent);">
+            Abrir grafo em nova aba
           </a>
         ` : ''}
       </div>
 
       ${hasGraph ? `
-        <div style="background: var(--surface); border: 1px solid var(--surface-border); border-radius: var(--radius); overflow: hidden; margin-bottom: 1.5rem;">
-          <iframe src="../graphify-out/graph.html" style="width: 100%; height: 600px; border: none; background: #000;"></iframe>
-        </div>
-        ${graphReport ? `
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          O preview embutido foi omitido de propósito: <code>graph.html</code> pesa megabytes e um iframe com <code>src</code> carrega mesmo com a aba oculta, travando o hub. Use o link acima.
+        </p>
+        ${graphReportHtml ? `
           <h3 style="font-size: 1rem; color: #fff; margin-bottom: 0.75rem;">Relatório do Grafo (GRAPH_REPORT.md)</h3>
-          <pre style="max-height: 400px; overflow-y: auto;">${escapeHtml(graphReport)}</pre>
+          <div class="md-body" style="max-height: 400px; overflow-y: auto; max-width: none;">${graphReportHtml}</div>
         ` : ''}
       ` : `
         <div style="text-align: center; padding: 4rem 1rem; background: var(--surface); border: 1px solid var(--surface-border); border-radius: var(--radius);">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">🕸️</div>
           <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 0.5rem;">Nenhum grafo gerado ainda</h3>
           <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 1.5rem auto; font-size: 0.9rem;">
             O Graphify analisa toda a base de código, descobre os god nodes e comunidades lógicas, gerando uma visualização interativa em 2D/3D.
@@ -804,19 +1405,19 @@ const html = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 4: RULES -->
-    <div id="tab-rules" class="tab-content">
+    <div id="tab-rules" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-rules" hidden>
       <div style="margin-bottom: 1rem;">
         <h2 style="font-size: 1.1rem; color: #fff;">Regras do Projeto (${rulesFile || 'Nenhuma'})</h2>
         <p style="font-size: 0.85rem; color: var(--text-muted);">Instruções fornecidas para os agentes em <code>${rulesFile || 'AGENTS.md'}</code>.</p>
       </div>
-      ${rulesContent ? `
-        <pre style="max-height: 70vh; overflow-y: auto; white-space: pre-wrap;">${escapeHtml(rulesContent)}</pre>
+      ${rulesHtml ? `
+        <div class="md-body" style="max-height: 70vh; overflow-y: auto; max-width: none;">${rulesHtml}</div>
       ` : '<p style="color: var(--text-muted);">Nenhum arquivo <code>AGENTS.md</code>, <code>CLAUDE.md</code> ou <code>CONTEXT.md</code> encontrado na raiz do projeto.</p>'}
     </div>
 
     <!-- TAB 5: ARCHITECTURE (ARCHIFY) -->
     ${archifyDiagrams.length > 0 ? `
-      <div id="tab-arch" class="tab-content">
+      <div id="tab-arch" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-arch" hidden>
         <div style="margin-bottom: 1rem;">
           <h2 style="font-size: 1.1rem; color: #fff;">Diagramas de Arquitetura (Archify)</h2>
           <p style="font-size: 0.85rem; color: var(--text-muted);">Diagramas interativos de arquitetura gerados em <code>.archify/</code>.</p>
@@ -824,10 +1425,10 @@ const html = `<!DOCTYPE html>
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem;">
           ${archifyDiagrams.map(d => `
             <div class="spec-card">
-              <div class="spec-title">🏛️ ${escapeHtml(d.name)}</div>
+              <div class="spec-title">${escapeHtml(d.name)}</div>
               <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(d.relPath)}</div>
-              <a href="../${escapeHtml(d.relPath)}" target="_blank" style="text-decoration: none; margin-top: 0.5rem;">
-                <button class="btn-copy" style="width: 100%; justify-content: center;">Abrir Diagrama ↗</button>
+              <a class="btn-copy" href="${escapeHtml(d.relPath)}" target="_blank" rel="noopener" style="width: 100%; justify-content: center; margin-top: 0.5rem;">
+                Abrir diagrama
               </a>
             </div>
           `).join('')}
@@ -836,36 +1437,71 @@ const html = `<!DOCTYPE html>
     ` : ''}
   </main>
 
-  <!-- Modal Detalhe do Ticket / Spec -->
-  <div class="modal-backdrop" id="modal">
-    <div class="modal-box">
-      <div class="modal-header">
-        <div class="modal-title" id="modal-title">Detalhe</div>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
-      </div>
-      <div class="modal-body" id="modal-body"></div>
-      <div class="modal-footer" id="modal-footer"></div>
+  <!-- Side panel: detalhe do ticket / spec -->
+  <div class="side-panel-overlay" id="panel-overlay" hidden></div>
+  <aside
+    class="side-panel"
+    id="side-panel"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="panel-title"
+    hidden
+  >
+    <div class="side-panel-header">
+      <h2 class="side-panel-title" id="panel-title">Detalhe</h2>
+      <button type="button" class="side-panel-close" id="panel-close" aria-label="Fechar">&times;</button>
     </div>
-  </div>
+    <div class="side-panel-body" id="panel-body"></div>
+    <div class="side-panel-footer" id="panel-footer"></div>
+  </aside>
 
-  <div class="toast" id="toast">Copiado para a área de transferência!</div>
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script id="hub-data" type="application/json">
     ${JSON.stringify(payload).replace(/</g, '\\u003c')}
   </script>
 
   <script>
-    const data = JSON.parse(document.getElementById('hub-data').textContent);
+    let data;
+    try {
+      data = JSON.parse(document.getElementById('hub-data').textContent);
+    } catch (err) {
+      const main = document.querySelector('main');
+      if (main) {
+        main.innerHTML = '<p>Erro ao carregar os dados do hub.</p>';
+      }
+      data = null;
+    }
+
+    if (data) {
     let activeFeature = 'all';
     let searchQuery = '';
+    let panelOpener = null;
+
+    const panelEl = document.getElementById('side-panel');
+    const panelOverlay = document.getElementById('panel-overlay');
+    const panelCloseBtn = document.getElementById('panel-close');
+    const panelFooter = document.getElementById('panel-footer');
+    const boardEl = document.getElementById('tab-board');
 
     // Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        document.querySelectorAll('.tab-content').forEach(c => {
+          c.classList.remove('active');
+          c.hidden = true;
+        });
         btn.classList.add('active');
-        document.getElementById(btn.dataset.tab).classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        const panel = document.getElementById(btn.dataset.tab);
+        if (panel) {
+          panel.classList.add('active');
+          panel.hidden = false;
+        }
       });
     });
 
@@ -913,12 +1549,24 @@ const html = `<!DOCTYPE html>
         const col = t.computedColumn;
         counts[col]++;
 
+        // role=button (not <button>) to allow nested "Copiar prompt" button
         const card = document.createElement('div');
         card.className = 'ticket-card';
-        card.onclick = (e) => {
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-label', \`Abrir ticket #\${t.id}: \${t.title}\`);
+        const openFromCard = () => openTicketPanel(t, card);
+        card.addEventListener('click', (e) => {
           if (e.target.closest('.btn-copy')) return;
-          openTicketModal(t);
-        };
+          openFromCard();
+        });
+        card.addEventListener('keydown', (e) => {
+          if (e.target.closest('.btn-copy')) return;
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openFromCard();
+          }
+        });
 
         const totalCrit = t.criteria.length;
         const doneCrit = t.criteria.filter(c => c.done).length;
@@ -935,7 +1583,7 @@ const html = `<!DOCTYPE html>
             <div class="card-blockers">
               \${t.blockersDetail.map(b => \`
                 <span class="blocker-chip \${b.resolved ? 'resolved' : 'pending'}">
-                  \${b.resolved ? '✓' : '⛔'} #\${escapeHtml(b.id)}
+                  \${b.resolved ? 'ok' : 'bloq'} #\${escapeHtml(b.id)}
                 </span>
               \`).join('')}
             </div>
@@ -951,8 +1599,8 @@ const html = `<!DOCTYPE html>
           \` : ''}
 
           <div class="card-actions">
-            <button class="btn-copy" onclick="copyAgentPrompt('\${escapeHtml(t.id)}', '\${escapeJsString(t.title)}', '\${escapeJsString(t.relPath)}')">
-              📋 Copiar Prompt
+            <button type="button" class="btn-copy" data-action="copy-prompt" data-id="\${escapeHtml(t.id)}" data-title="\${escapeHtml(t.title)}" data-path="\${escapeHtml(t.relPath)}">
+              Copiar prompt
             </button>
           </div>
         \`;
@@ -962,27 +1610,94 @@ const html = `<!DOCTYPE html>
 
       cols.forEach(c => {
         document.getElementById('count-' + c).textContent = counts[c];
+        const colEl = document.querySelector('.kanban-col[data-col="' + c + '"]');
+        if (colEl) colEl.style.display = counts[c] === 0 ? 'none' : '';
       });
     }
 
-    function copyAgentPrompt(id, title, relPath) {
+    function copyTextFallback(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      ta.style.left = '-9999px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      let ok = false;
+      try {
+        ok = document.execCommand('copy');
+      } catch (_) {
+        ok = false;
+      }
+      document.body.removeChild(ta);
+      return ok;
+    }
+
+    async function copyText(text) {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (_) {
+          /* fall through to execCommand fallback (common on file://) */
+        }
+      }
+      return copyTextFallback(text);
+    }
+
+    async function copyAgentPrompt(id, title, relPath) {
       const prompt = \`Implemente o ticket \${id} (\${title}): leia os requisitos e critérios em \${relPath}, execute a implementação, valide os testes e marque o status do arquivo como resolved ao concluir.\`;
-      navigator.clipboard.writeText(prompt).then(() => {
-        showToast('Prompt do agente copiado para a área de transferência!');
-      });
+      const ok = await copyText(prompt);
+      if (ok) {
+        showToast('Prompt do agente copiado para a área de transferência!', false);
+      } else {
+        showToast('Não foi possível copiar o prompt. Selecione e copie manualmente.', true);
+      }
     }
 
-    function showToast(msg) {
+    let toastTimer = null;
+    function showToast(msg, isError) {
       const toast = document.getElementById('toast');
       toast.textContent = msg;
+      toast.classList.toggle('error', !!isError);
       toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2500);
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.remove('error');
+      }, 2500);
     }
 
-    function openTicketModal(t) {
-      document.getElementById('modal-title').textContent = \`Ticket #\${t.id}: \${t.title}\`;
-      const modalBody = document.getElementById('modal-body');
-      modalBody.innerHTML = \`
+    function openPanel(opener) {
+      panelOpener = opener || document.activeElement;
+      panelOverlay.hidden = false;
+      panelOverlay.classList.add('active');
+      panelEl.hidden = false;
+      panelEl.classList.add('active');
+      panelCloseBtn.focus();
+    }
+
+    function closePanel() {
+      if (!panelEl.classList.contains('active')) return;
+      panelEl.classList.remove('active');
+      panelOverlay.classList.remove('active');
+      panelEl.hidden = true;
+      panelOverlay.hidden = true;
+      const opener = panelOpener;
+      panelOpener = null;
+      if (opener && typeof opener.focus === 'function') {
+        try { opener.focus(); } catch (_) {}
+      }
+    }
+
+    function openTicketPanel(t, opener) {
+      document.getElementById('panel-title').textContent = \`Ticket #\${t.id}: \${t.title}\`;
+      const panelBody = document.getElementById('panel-body');
+      panelBody.innerHTML = \`
         <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;">
           <span class="card-feature">\${escapeHtml(t.feature)}</span>
           <span class="badge \${t.computedColumn === 'done' ? 'success' : (t.computedColumn === 'blocked' ? 'danger' : 'primary')}">
@@ -990,39 +1705,66 @@ const html = `<!DOCTYPE html>
           </span>
           <span style="font-size: 0.8rem; color: var(--text-muted);">Arquivo: <code>\${escapeHtml(t.relPath)}</code></span>
         </div>
-        <pre style="white-space: pre-wrap; font-size: 0.85rem;">\${escapeHtml(t.content)}</pre>
+        <div class="md-body"></div>
       \`;
-      document.getElementById('modal-footer').innerHTML = \`
-        <button class="btn-copy" onclick="copyAgentPrompt('\${escapeHtml(t.id)}', '\${escapeJsString(t.title)}', '\${escapeJsString(t.relPath)}')">
-          📋 Copiar Prompt para Agente
+      const mdEl = panelBody.querySelector('.md-body');
+      mdEl.innerHTML = t.contentHtml || \`<p>\${escapeHtml(t.content)}</p>\`;
+      panelFooter.innerHTML = \`
+        <button type="button" class="btn-copy" data-action="copy-prompt" data-id="\${escapeHtml(t.id)}" data-title="\${escapeHtml(t.title)}" data-path="\${escapeHtml(t.relPath)}">
+          Copiar prompt
         </button>
-        <button class="btn-copy" onclick="closeModal()">Fechar</button>
+        <button type="button" class="btn-copy" data-action="close-panel">Fechar</button>
       \`;
-      document.getElementById('modal').classList.add('active');
+      openPanel(opener);
     }
 
-    function openSpecModal(idx) {
+    function openSpecPanel(idx, opener) {
       const s = data.specs[idx];
-      document.getElementById('modal-title').textContent = \`Spec: \${s.title}\`;
-      document.getElementById('modal-body').innerHTML = \`
+      if (!s) return;
+      document.getElementById('panel-title').textContent = \`Spec: \${s.title}\`;
+      const panelBody = document.getElementById('panel-body');
+      panelBody.innerHTML = \`
         <div style="margin-bottom: 1rem;">
           <span class="card-feature">\${escapeHtml(s.feature)}</span>
           <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">Arquivo: <code>\${escapeHtml(s.relPath)}</code></span>
         </div>
-        <pre style="white-space: pre-wrap; font-size: 0.85rem;">\${escapeHtml(s.content)}</pre>
+        <div class="md-body"></div>
       \`;
-      document.getElementById('modal-footer').innerHTML = \`
-        <button class="btn-copy" onclick="closeModal()">Fechar</button>
+      panelBody.querySelector('.md-body').innerHTML = s.contentHtml || \`<p>\${escapeHtml(s.content)}</p>\`;
+      panelFooter.innerHTML = \`
+        <button type="button" class="btn-copy" data-action="close-panel">Fechar</button>
       \`;
-      document.getElementById('modal').classList.add('active');
+      openPanel(opener || document.activeElement);
     }
 
-    function closeModal() {
-      document.getElementById('modal').classList.remove('active');
+    function onActionClick(e) {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      if (action === 'copy-prompt') {
+        e.preventDefault();
+        e.stopPropagation();
+        copyAgentPrompt(btn.dataset.id, btn.dataset.title, btn.dataset.path);
+      } else if (action === 'close-panel') {
+        e.preventDefault();
+        closePanel();
+      } else if (action === 'open-spec') {
+        e.preventDefault();
+        openSpecPanel(Number(btn.dataset.specIdx), btn);
+      }
     }
 
-    document.getElementById('modal').addEventListener('click', (e) => {
-      if (e.target.id === 'modal') closeModal();
+    if (boardEl) boardEl.addEventListener('click', onActionClick);
+    if (panelFooter) panelFooter.addEventListener('click', onActionClick);
+    document.getElementById('tab-specs')?.addEventListener('click', onActionClick);
+
+    panelCloseBtn.addEventListener('click', closePanel);
+    panelOverlay.addEventListener('click', closePanel);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && panelEl.classList.contains('active')) {
+        e.preventDefault();
+        closePanel();
+      }
     });
 
     function escapeHtml(str) {
@@ -1035,35 +1777,85 @@ const html = `<!DOCTYPE html>
         .replace(/'/g, '&#039;');
     }
 
-    function escapeJsString(str) {
-      if (!str) return '';
-      return String(str).replace(/'/g, "\\\\'");
-    }
-
     // Initial render
     renderBoard();
+    }
   </script>
 </body>
 </html>
 `;
 
-// Helper for escaping html in template literals
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-// 9. Write HTML
+// 10. Write HTML
 fs.mkdirSync(outputDir, { recursive: true });
 fs.writeFileSync(outputFile, html, 'utf8');
 
+if (useFixture) {
+  const smokeFailures = [];
+  if (!html.includes('md-body') && !html.includes('class="md-body"')) {
+    smokeFailures.push('missing .md-body (Markdown body container)');
+  }
+  if (!html.includes('side-panel')) {
+    smokeFailures.push('missing side-panel marker');
+  }
+  if (!html.includes('role="dialog"')) {
+    smokeFailures.push('missing role="dialog" on side panel');
+  }
+  if (html.includes('<iframe')) {
+    smokeFailures.push('unexpected <iframe present');
+  }
+  if (!/--accent\s*:\s*#22c55e\b/.test(html)) {
+    smokeFailures.push('fixture missing default --accent: #22c55e');
+  }
+  if (!/--accent-fg\s*:/.test(html)) {
+    smokeFailures.push('missing --accent-fg');
+  }
+  if (!html.includes('project-hub-theme-source') || !html.includes('content="default"')) {
+    smokeFailures.push('fixture theme source should be default');
+  }
+  if (/--primary\s*:\s*#6366f1\b/i.test(html)) {
+    smokeFailures.push('brand indigo --primary: #6366f1 present');
+  }
+  if (!html.includes('contentHtml')) {
+    smokeFailures.push('missing contentHtml in JSON payload');
+  }
+  // Infer helpers: brand CSS var wins; near-black theme-color is ignored
+  const fromCss = extractHexFromCssValue('light-dark(#B31555, #FF74AC)');
+  if (fromCss !== '#ff74ac') {
+    smokeFailures.push(`light-dark extract expected #ff74ac, got ${fromCss}`);
+  }
+  if (isUsableBrandHex('#0d0d0d')) {
+    smokeFailures.push('near-black #0d0d0d should not count as brand accent');
+  }
+  if (!isUsableBrandHex('#4a154b')) {
+    smokeFailures.push('dark high-chroma #4a154b should count as brand accent');
+  }
+  if (!isUsableBrandHex('#49f21b')) {
+    smokeFailures.push('#49f21b should count as brand accent');
+  }
+  if (isSafeHref('//evil.com')) {
+    smokeFailures.push('protocol-relative //evil.com should be rejected');
+  }
+  if (!isSafeHref('./x.md') || !isSafeHref('graphify-out/graph.html')) {
+    smokeFailures.push('safe relative hrefs should be allowed');
+  }
+  if (isSafeHref('javascript:alert(1)') || isSafeHref('data:text/html,x')) {
+    smokeFailures.push('javascript:/data: hrefs should be rejected');
+  }
+  if (smokeFailures.length) {
+    console.error('[Project Hub] Smoke --fixture FAILED:');
+    for (const f of smokeFailures) console.error(`  - ${f}`);
+    process.exit(1);
+  }
+  console.log(`[Project Hub] Fixture OK (smoke passed):`);
+  console.log(`  file://${outputFile}`);
+  console.log(`  Theme: ${projectTheme.accent} (${projectTheme.source})`);
+  console.log(`  Specs: ${metrics.totalSpecs} | Tickets: ${metrics.totalTickets} (${metrics.ready} ready, ${metrics.inProgress} in progress, ${metrics.blocked} blocked, ${metrics.done} done)`);
+  process.exit(0);
+}
+
 console.log(`[Project Hub] Dashboard gerado com sucesso em:`);
 console.log(`  file://${outputFile}`);
+console.log(`  Theme: ${projectTheme.accent} (${projectTheme.source})`);
 console.log(`  Specs: ${metrics.totalSpecs} | Tickets: ${metrics.totalTickets} (${metrics.ready} ready, ${metrics.inProgress} in progress, ${metrics.blocked} blocked, ${metrics.done} done)`);
 
 if (shouldOpen) {

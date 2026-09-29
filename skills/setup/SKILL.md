@@ -47,7 +47,7 @@ Resuma o que encontrou e faça as perguntas da fronteira (uma por vez, liderando
 
   ### Issue tracker
   Rastreamento local em arquivos markdown sob `.scratch/<feature>/`.
-  Visualizador visual interativo: `.scratch/index.html`.
+  Dashboard interativo em `.scratch/index.html`.
   Veja `docs/agents/issue-tracker.md`.
 
   ### Domain docs
@@ -76,6 +76,38 @@ Se o usuário tiver passado a flag `--docs`, utilize:
 ```bash
 node scripts/generate-hub.mjs --docs
 ```
+
+O HTML em `.scratch/index.html` é gerado e regenerado por esse script. Não edite o arquivo à mão; correção ou melhoria visual entra no gerador da skill `setup`.
+
+#### Fixture e smoke estrutural
+
+Para validar o gerador sem depender do `.scratch` do repositório do usuário, use a árvore `fixtures/minimal-scratch/` (spec + tickets de exemplo) e a flag `--fixture`:
+
+```bash
+node scripts/generate-hub.mjs --fixture
+```
+
+Comportamento:
+- Coleta tickets/specs apenas da fixture da skill (`fixtures/minimal-scratch/`), ignorando path posicional e o `.scratch` do cwd.
+- Escreve o HTML de teste em `fixtures/hub-fixture.html` (ao lado da fixture, relativo à skill).
+- Roda smoke estrutural no HTML gerado e sai com código ≠ 0 se falhar. Verifica:
+  - presença de corpo MD (`.md-body`);
+  - marcadores de side panel (`side-panel` e `role="dialog"`);
+  - ausência de `<iframe`;
+  - presença de `--accent: #22c55e` (fixture sem marca → default);
+  - presença de `--accent-fg` e `project-hub-theme-source=default`;
+  - ausência do indigo de marca `--primary: #6366f1`;
+  - presença de `contentHtml` no payload JSON;
+  - checagens das helpers de inferência (`light-dark`, rejeição de near-black).
+- Em sucesso: exit 0 e log do path do HTML.
+
+Flags existentes (`--docs`, `--open`, path posicional do repo) continuam iguais quando `--fixture` não está presente.
+
+### Design contract do Project Hub
+
+Antes de alterar o gerador ou o visual do hub, leia o contrato em `templates/hub-design-contract.md`.
+
+O job da tela é escanear o Kanban, ler Markdown tipográfico (ticket, spec, regras, GRAPH_REPORT) e copiar o prompt de despacho. O artefato é single-file offline, sem CDN, com regeneração idempotente a partir dos Markdown em `.scratch/`. Tickets, specs, regras e relatório do grafo usam documento tipográfico. O detalhe abre em side panel à direita. A direção visual é neutro zinc/slate com accent verde por padrão; o gerador infere a cor de marca do projeto (CSS vars, theme-color, Tailwind) quando houver sinal confiável. Rejeitar indigo/purple default de LLM, emoji nos labels de chrome, lift/sombra teatral no hover e rounded/pill excessivo como identidade.
 
 ### 5. Conclusão e orientações
 
