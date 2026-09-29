@@ -94,9 +94,11 @@ Comportamento:
   - presença de corpo MD (`.md-body`);
   - marcadores de side panel (`side-panel` e `role="dialog"`);
   - ausência de `<iframe`;
-  - presença de `--accent: #22c55e`;
+  - presença de `--accent: #22c55e` (fixture sem marca → default);
+  - presença de `--accent-fg` e `project-hub-theme-source=default`;
   - ausência do indigo de marca `--primary: #6366f1`;
-  - presença de `contentHtml` no payload JSON.
+  - presença de `contentHtml` no payload JSON;
+  - checagens das helpers de inferência (`light-dark`, rejeição de near-black).
 - Em sucesso: exit 0 e log do path do HTML.
 
 Flags existentes (`--docs`, `--open`, path posicional do repo) continuam iguais quando `--fixture` não está presente.
@@ -105,7 +107,7 @@ Flags existentes (`--docs`, `--open`, path posicional do repo) continuam iguais 
 
 Antes de alterar o gerador ou o visual do hub, leia o contrato em `templates/hub-design-contract.md`.
 
-O job da tela é escanear o Kanban, ler Markdown tipográfico (ticket, spec, regras, GRAPH_REPORT) e copiar o prompt de despacho. O artefato é single-file offline, sem CDN, com regeneração idempotente a partir dos Markdown em `.scratch/`. Tickets, specs, regras e relatório do grafo aparecem como documento tipográfico, não como dump monoespaçado em `<pre>`. O detalhe abre em side panel à direita, não em modal centrado com blur. A direção visual é neutro zinc/slate com accent verde. Rejeitar indigo/purple default, emoji nos labels de chrome, lift/sombra teatral no hover e rounded/pill excessivo como identidade.
+O job da tela é escanear o Kanban, ler Markdown tipográfico (ticket, spec, regras, GRAPH_REPORT) e copiar o prompt de despacho. O artefato é single-file offline, sem CDN, com regeneração idempotente a partir dos Markdown em `.scratch/`. Tickets, specs, regras e relatório do grafo aparecem como documento tipográfico, não como dump monoespaçado em `<pre>`. O detalhe abre em side panel à direita, não em modal centrado com blur. A direção visual é neutro zinc/slate com accent verde por padrão; o gerador infere a cor de marca do projeto (CSS vars, theme-color, Tailwind) quando houver sinal confiável. Rejeitar indigo/purple default de LLM, emoji nos labels de chrome, lift/sombra teatral no hover e rounded/pill excessivo como identidade.
 
 ### 5. Conclusão e orientações
 

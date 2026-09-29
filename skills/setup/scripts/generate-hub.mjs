@@ -36,6 +36,285 @@ try {
   }
 } catch {}
 
+// 1b. Infer project brand accent (CSS vars, theme-color, Tailwind) → hub tokens
+const DEFAULT_ACCENT = '#22c55e';
+const DEFAULT_ACCENT_FG = '#052e16';
+
+function normalizeHex(raw) {
+  if (!raw) return null;
+  let h = String(raw).trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{3}$/.test(h)) {
+    h = h.split('').map((c) => c + c).join('');
+  }
+  if (/^[0-9a-fA-F]{8}$/.test(h)) h = h.slice(0, 6);
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return `#${h.toLowerCase()}`;
+}
+
+function parseRgb(hex) {
+  const h = normalizeHex(hex);
+  if (!h) return null;
+  return {
+    r: parseInt(h.slice(1, 3), 16),
+    g: parseInt(h.slice(3, 5), 16),
+    b: parseInt(h.slice(5, 7), 16),
+  };
+}
+
+function relativeLuminance(hex) {
+  const rgb = parseRgb(hex);
+  if (!rgb) return 0;
+  const lin = (c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b);
+}
+
+function hexChroma(hex) {
+  const rgb = parseRgb(hex);
+  if (!rgb) return 0;
+  const max = Math.max(rgb.r, rgb.g, rgb.b);
+  const min = Math.min(rgb.r, rgb.g, rgb.b);
+  return (max - min) / 255;
+}
+
+function contrastRatio(hexA, hexB) {
+  const l1 = relativeLuminance(hexA);
+  const l2 = relativeLuminance(hexB);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function accentFgFor(hex) {
+  const dark = DEFAULT_ACCENT_FG;
+  const light = '#fafafa';
+  return contrastRatio(hex, dark) >= contrastRatio(hex, light) ? dark : light;
+}
+
+function isUsableBrandHex(hex) {
+  const n = normalizeHex(hex);
+  if (!n) return false;
+  const L = relativeLuminance(n);
+  const C = hexChroma(n);
+  // Skip near-black/near-white chrome colors and low-chroma neutrals
+  if (L < 0.08 || L > 0.92) return false;
+  if (C < 0.12) return false;
+  return true;
+}
+
+function extractHexFromCssValue(value) {
+  if (!value) return null;
+  const v = String(value).trim();
+  const ld = v.match(/light-dark\s*\(\s*(#[0-9a-fA-F]{3,8})\s*,\s*(#[0-9a-fA-F]{3,8})\s*\)/i);
+  if (ld) {
+    // Hub is dark: prefer the dark leg of light-dark()
+    const dark = normalizeHex(ld[2]);
+    if (isUsableBrandHex(dark)) return dark;
+    const light = normalizeHex(ld[1]);
+    if (isUsableBrandHex(light)) return light;
+  }
+  const hex = v.match(/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/);
+  if (hex) {
+    const n = normalizeHex(hex[0]);
+    if (isUsableBrandHex(n)) return n;
+  }
+  const rgb = v.match(/rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i);
+  if (rgb) {
+    const toHex = (n) => Math.max(0, Math.min(255, Number(n))).toString(16).padStart(2, '0');
+    const n = normalizeHex(`#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`);
+    if (isUsableBrandHex(n)) return n;
+  }
+  return null;
+}
+
+const BRAND_VAR_SCORE = [
+  [/^--(?:color-)?primary$/i, 100],
+  [/^--brand(?:-color)?$/i, 98],
+  [/^--color-brand$/i, 97],
+  [/^--(?:color-)?action$/i, 94],
+  [/^--accent-regular$/i, 92],
+  [/^--(?:color-)?accent$/i, 90],
+  [/^--color-theme$/i, 88],
+  [/^--accent-light$/i, 86],
+  [/^--gold$/i, 84],
+  [/^--(?:color-)?link$/i, 70],
+  [/^--msapplication-tilecolor$/i, 60],
+];
+
+const BRAND_VAR_SKIP = /success|error|danger|warning|hit|miss|near|found|level|gray|grey|muted|text|border|canvas|surface|overlay|background|foreground|bg\b|fg\b|shadow|hit-hc|near-hc/i;
+
+function scoreBrandVar(name) {
+  if (BRAND_VAR_SKIP.test(name)) return 0;
+  for (const [re, score] of BRAND_VAR_SCORE) {
+    if (re.test(name)) return score;
+  }
+  if (/primary|brand|accent|action|gold|theme/i.test(name)) return 50;
+  return 0;
+}
+
+function collectThemeFiles(root) {
+  const SKIP = new Set([
+    'node_modules', '.git', 'dist', 'build', 'coverage', 'vendor',
+    '.scratch', 'graphify-out', '.next', 'out', 'target', '.turbo',
+    '.cache', '.archify', 'fixtures', 'storybook-static',
+  ]);
+  const files = [];
+  const maxFiles = 100;
+  const walk = (dir, depth) => {
+    if (files.length >= maxFiles || depth > 5) return;
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (files.length >= maxFiles) return;
+      const name = e.name;
+      if (name.startsWith('.') && name !== '.scratch') {
+        if (e.isDirectory()) continue;
+      }
+      const full = path.join(dir, name);
+      if (e.isDirectory()) {
+        if (SKIP.has(name)) continue;
+        walk(full, depth + 1);
+      } else if (e.isFile()) {
+        const lower = name.toLowerCase();
+        const ok =
+          lower.endsWith('.css') ||
+          lower.endsWith('.scss') ||
+          lower.endsWith('.sass') ||
+          lower === 'index.html' ||
+          /^tailwind\.config\.(js|cjs|mjs|ts)$/.test(lower) ||
+          lower === 'globals.css' ||
+          lower === 'global.css' ||
+          lower === 'variables.css' ||
+          lower === 'tokens.css' ||
+          lower === 'tokens.scss';
+        if (ok) files.push(full);
+      }
+    }
+  };
+  // Prefer shallow brand surfaces first
+  const preferred = [
+    'index.html',
+    'public/index.html',
+    'src/index.css',
+    'src/styles/global.css',
+    'src/styles/globals.css',
+    'src/styles/tokens.css',
+    'src/styles/variables.css',
+    'styles.css',
+    'web/index.html',
+    'web/src/styles/variables.css',
+    'web/src/styles/tokens.css',
+    'app/globals.css',
+    'tailwind.config.js',
+    'tailwind.config.ts',
+    'tailwind.config.mjs',
+    'tailwind.config.cjs',
+  ];
+  for (const rel of preferred) {
+    const full = path.join(root, rel);
+    if (fs.existsSync(full) && fs.statSync(full).isFile()) files.push(full);
+  }
+  walk(root, 0);
+  return [...new Set(files)];
+}
+
+function inferProjectTheme(root) {
+  const fallback = {
+    accent: DEFAULT_ACCENT,
+    accentFg: DEFAULT_ACCENT_FG,
+    source: 'default',
+  };
+  if (useFixture) return fallback;
+
+  const candidates = []; // { hex, score, source }
+
+  const push = (hex, score, source) => {
+    const n = normalizeHex(hex);
+    if (!n || !isUsableBrandHex(n)) return;
+    candidates.push({ hex: n, score, source });
+  };
+
+  const files = collectThemeFiles(root);
+  for (const file of files) {
+    let text = '';
+    try {
+      const st = fs.statSync(file);
+      if (st.size > 400_000) continue;
+      text = fs.readFileSync(file, 'utf8');
+    } catch {
+      continue;
+    }
+    const base = path.basename(file).toLowerCase();
+    const rel = path.relative(root, file).split(path.sep).join('/');
+
+    // meta theme-color / tile / mask-icon (skip pure bg chrome later via isUsableBrandHex)
+    if (base.endsWith('.html')) {
+      const themeColor = text.match(/<meta\s+[^>]*name=["']theme-color["'][^>]*content=["']([^"']+)["']/i)
+        || text.match(/<meta\s+[^>]*content=["']([^"']+)["'][^>]*name=["']theme-color["']/i);
+      if (themeColor) push(themeColor[1], 55, `meta:theme-color@${rel}`);
+      const tile = text.match(/<meta\s+[^>]*name=["']msapplication-TileColor["'][^>]*content=["']([^"']+)["']/i)
+        || text.match(/<meta\s+[^>]*content=["']([^"']+)["'][^>]*name=["']msapplication-TileColor["']/i);
+      if (tile) push(tile[1], 58, `meta:tile@${rel}`);
+      const mask = text.match(/<link\s+[^>]*rel=["']mask-icon["'][^>]*color=["']([^"']+)["']/i)
+        || text.match(/<link\s+[^>]*color=["']([^"']+)["'][^>]*rel=["']mask-icon["']/i);
+      if (mask) push(mask[1], 62, `mask-icon@${rel}`);
+    }
+
+    // CSS custom properties
+    const varRe = /(--[A-Za-z0-9-_]+)\s*:\s*([^;{}]+)/g;
+    let m;
+    while ((m = varRe.exec(text)) !== null) {
+      const name = m[1];
+      const score = scoreBrandVar(name);
+      if (score <= 0) continue;
+      const hex = extractHexFromCssValue(m[2]);
+      if (hex) push(hex, score, `css:${name}@${rel}`);
+    }
+
+    // Tailwind theme primary
+    if (/^tailwind\.config\./.test(base)) {
+      const primaryBlock = text.match(/primary\s*:\s*\{([^}]{0,800})\}/);
+      if (primaryBlock) {
+        const def = primaryBlock[1].match(/DEFAULT\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i)
+          || primaryBlock[1].match(/500\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i)
+          || primaryBlock[1].match(/['"](#[0-9a-fA-F]{3,8})['"]/);
+        if (def) push(def[1], 96, `tailwind:primary@${rel}`);
+      }
+      const primaryFlat = text.match(/primary\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i);
+      if (primaryFlat) push(primaryFlat[1], 96, `tailwind:primary@${rel}`);
+    }
+
+    // Class selectors that usually carry brand paint (no CSS vars)
+    if (/\.(css|scss|sass)$/i.test(base) || base.endsWith('.html')) {
+      const classRe = /\.(brand-mark|btn-primary|button-primary|primary|brand)[^{.]*\{([^}]{0,400})\}/gi;
+      let cm;
+      while ((cm = classRe.exec(text)) !== null) {
+        const hex = extractHexFromCssValue(cm[2])
+          || (cm[2].match(/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/) || [])[0];
+        if (hex) push(hex, 75, `class:.${cm[1]}@${rel}`);
+      }
+    }
+  }
+
+  if (!candidates.length) return fallback;
+
+  candidates.sort((a, b) => b.score - a.score || hexChroma(b.hex) - hexChroma(a.hex));
+  const best = candidates[0];
+  return {
+    accent: best.hex,
+    accentFg: accentFgFor(best.hex),
+    source: best.source,
+  };
+}
+
+const projectTheme = inferProjectTheme(repoRoot);
+
 // 2. Discover Rules File
 let rulesFile = null;
 let rulesContent = '';
@@ -521,6 +800,7 @@ const html = `<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(projectName)} · Project Hub</title>
+  <meta name="project-hub-theme-source" content="${escapeHtml(projectTheme.source)}">
   <style>
     :root {
       --bg: #09090b;
@@ -531,8 +811,9 @@ const html = `<!DOCTYPE html>
       --text-muted: #a1a1aa;
       --primary: #71717a;
       --primary-light: #a1a1aa;
-      --accent: #22c55e;
-      --success: #22c55e;
+      --accent: ${projectTheme.accent};
+      --accent-fg: ${projectTheme.accentFg};
+      --success: ${projectTheme.accent};
       --warning: #f59e0b;
       --danger: #ef4444;
       --info: #06b6d4;
@@ -571,7 +852,11 @@ const html = `<!DOCTYPE html>
       background: #27272a;
       color: var(--text-muted);
     }
-    .badge.success { border-color: rgba(34, 197, 94, 0.4); color: #4ade80; background: rgba(34, 197, 94, 0.1); }
+    .badge.success {
+      border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      color: color-mix(in srgb, var(--accent) 72%, white);
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+    }
     .badge.primary { border-color: rgba(113, 113, 122, 0.4); color: #a1a1aa; background: rgba(113, 113, 122, 0.1); }
     .badge.warning { border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; background: rgba(245, 158, 11, 0.1); }
     .badge.danger { border-color: rgba(239, 68, 68, 0.4); color: #f87171; background: rgba(239, 68, 68, 0.1); }
@@ -880,7 +1165,7 @@ const html = `<!DOCTYPE html>
       bottom: 2rem;
       right: 2rem;
       background: var(--accent);
-      color: #052e16;
+      color: var(--accent-fg);
       padding: 0.75rem 1.25rem;
       border-radius: 8px;
       font-weight: 600;
@@ -1089,7 +1374,7 @@ const html = `<!DOCTYPE html>
         </div>
         ${hasGraph ? `
           <a href="${escapeHtml(graphHtmlRel)}" target="_blank" rel="noopener" style="text-decoration: none;">
-            <button class="btn-copy" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: var(--accent); color: #052e16; border-color: var(--accent);">
+            <button class="btn-copy" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: var(--accent); color: var(--accent-fg); border-color: var(--accent);">
               Abrir grafo em nova aba
             </button>
           </a>
@@ -1514,13 +1799,30 @@ if (useFixture) {
     smokeFailures.push('unexpected <iframe present');
   }
   if (!/--accent\s*:\s*#22c55e\b/.test(html)) {
-    smokeFailures.push('missing --accent: #22c55e');
+    smokeFailures.push('fixture missing default --accent: #22c55e');
+  }
+  if (!/--accent-fg\s*:/.test(html)) {
+    smokeFailures.push('missing --accent-fg');
+  }
+  if (!html.includes('project-hub-theme-source') || !html.includes('content="default"')) {
+    smokeFailures.push('fixture theme source should be default');
   }
   if (/--primary\s*:\s*#6366f1\b/i.test(html)) {
     smokeFailures.push('brand indigo --primary: #6366f1 present');
   }
   if (!html.includes('contentHtml')) {
     smokeFailures.push('missing contentHtml in JSON payload');
+  }
+  // Infer helpers: brand CSS var wins; near-black theme-color is ignored
+  const fromCss = extractHexFromCssValue('light-dark(#B31555, #FF74AC)');
+  if (fromCss !== '#ff74ac') {
+    smokeFailures.push(`light-dark extract expected #ff74ac, got ${fromCss}`);
+  }
+  if (isUsableBrandHex('#0d0d0d')) {
+    smokeFailures.push('near-black #0d0d0d should not count as brand accent');
+  }
+  if (!isUsableBrandHex('#49f21b')) {
+    smokeFailures.push('#49f21b should count as brand accent');
   }
   if (smokeFailures.length) {
     console.error('[Project Hub] Smoke --fixture FAILED:');
@@ -1529,12 +1831,14 @@ if (useFixture) {
   }
   console.log(`[Project Hub] Fixture OK (smoke passed):`);
   console.log(`  file://${outputFile}`);
+  console.log(`  Theme: ${projectTheme.accent} (${projectTheme.source})`);
   console.log(`  Specs: ${metrics.totalSpecs} | Tickets: ${metrics.totalTickets} (${metrics.ready} ready, ${metrics.inProgress} in progress, ${metrics.blocked} blocked, ${metrics.done} done)`);
   process.exit(0);
 }
 
 console.log(`[Project Hub] Dashboard gerado com sucesso em:`);
 console.log(`  file://${outputFile}`);
+console.log(`  Theme: ${projectTheme.accent} (${projectTheme.source})`);
 console.log(`  Specs: ${metrics.totalSpecs} | Tickets: ${metrics.totalTickets} (${metrics.ready} ready, ${metrics.inProgress} in progress, ${metrics.blocked} blocked, ${metrics.done} done)`);
 
 if (shouldOpen) {

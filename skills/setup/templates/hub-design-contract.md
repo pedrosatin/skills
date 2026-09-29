@@ -35,9 +35,11 @@ Rejeitado como padrão de detalhe: modal centrado com backdrop blur.
 
 ## Tokens (direção)
 
-Família neutra zinc/slate para fundo, surface, borda e texto. Accent verde para estados de sucesso/ready e CTA relevantes. Danger e warning semânticos quando houver estado de erro ou alerta.
+Família neutra zinc/slate para fundo, surface, borda e texto. Accent verde (`#22c55e`) por padrão para estados de sucesso/ready e CTA relevantes. Danger e warning semânticos quando houver estado de erro ou alerta.
 
-Detalhe de valores CSS e nomes de variáveis fica em tickets posteriores. O contrato fixa a direção: neutro operacional com accent verde, sem indigo/purple como cor de marca.
+Quando o repositório expõe cor de marca inferível (variáveis CSS como `--color-primary` / `--accent` / `--color-action`, `theme-color` / tile / mask-icon com croma útil, ou `primary` no Tailwind config), o gerador usa essa cor em `--accent` e `--success`, com `--accent-fg` escolhido por contraste. Neutros zinc permanecem. Sem sinal confiável, cai no verde padrão.
+
+Detalhe de valores CSS e nomes de variáveis fica no gerador. O contrato fixa a direção: neutro operacional com accent de marca do projeto (ou verde padrão), sem indigo/purple genérico de LLM como default do hub.
 
 ## Anti-patterns rejeitados
 
