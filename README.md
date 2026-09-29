@@ -19,9 +19,10 @@ git clone https://github.com/pedrosatin/skills.git
 ```
 
 O `link.sh` cria `~/.agents/skills/<nome>` apontando para cada pasta de
-`skills/`, sem tocar nas skills de fora do repo. Ele é idempotente, pula
-pastas reais e apaga links quebrados de skills removidas do repo (também nas
-raízes de Claude Code, Codex e Gemini). Rode de novo depois de cada `git pull`.
+`skills/`. Pastas reais e links que apontam para fora do repo ficam como
+estão, com aviso. O script é idempotente e apaga links quebrados que
+apontam para o repo ou para `~/.agents/skills`, inclusive nas raízes de
+Claude Code, Codex e Gemini. Rode de novo depois de cada `git pull`.
 
 OpenCode lê `~/.agents/skills` nativamente. Claude Code, Codex e Gemini leem
 por symlink (`ln -s ../../.agents/skills/<nome> ~/.claude/skills/<nome>`).
