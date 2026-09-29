@@ -107,7 +107,7 @@ Flags existentes (`--docs`, `--open`, path posicional do repo) continuam iguais 
 
 Antes de alterar o gerador ou o visual do hub, leia o contrato em `templates/hub-design-contract.md`.
 
-O job da tela é escanear o Kanban, ler Markdown tipográfico (ticket, spec, regras, GRAPH_REPORT) e copiar o prompt de despacho. O artefato é single-file offline, sem CDN, com regeneração idempotente a partir dos Markdown em `.scratch/`. Tickets, specs, regras e relatório do grafo aparecem como documento tipográfico, não como dump monoespaçado em `<pre>`. O detalhe abre em side panel à direita, não em modal centrado com blur. A direção visual é neutro zinc/slate com accent verde por padrão; o gerador infere a cor de marca do projeto (CSS vars, theme-color, Tailwind) quando houver sinal confiável. Rejeitar indigo/purple default de LLM, emoji nos labels de chrome, lift/sombra teatral no hover e rounded/pill excessivo como identidade.
+O job da tela é escanear o Kanban, ler Markdown tipográfico (ticket, spec, regras, GRAPH_REPORT) e copiar o prompt de despacho. O artefato é single-file offline, sem CDN, com regeneração idempotente a partir dos Markdown em `.scratch/`. Tickets, specs, regras e relatório do grafo usam documento tipográfico. O detalhe abre em side panel à direita. A direção visual é neutro zinc/slate com accent verde por padrão; o gerador infere a cor de marca do projeto (CSS vars, theme-color, Tailwind) quando houver sinal confiável. Rejeitar indigo/purple default de LLM, emoji nos labels de chrome, lift/sombra teatral no hover e rounded/pill excessivo como identidade.
 
 ### 5. Conclusão e orientações
 

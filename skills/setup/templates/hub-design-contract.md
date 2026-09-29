@@ -14,24 +14,22 @@ Qualquer mudança de layout ou chrome deve preservar essas três tarefas. Decora
 
 ## Artefato e regeneração
 
-- Saída single-file: um único `.scratch/index.html` por repositório.
-- Offline: sem CDN, sem fetch de CSS/JS/fontes externos em runtime.
-- Regeneração idempotente: rodar `node scripts/generate-hub.mjs` (ou o path instalado em `~/.agents/skills/setup/scripts/generate-hub.mjs`) produz o mesmo contrato visual a partir dos Markdown em `.scratch/`.
+- Saída single-file. Um único `.scratch/index.html` por repositório.
+- Offline. Sem CDN e sem fetch de CSS/JS/fontes externos em runtime.
+- Regeneração idempotente. Rodar `node scripts/generate-hub.mjs` (ou o path instalado em `~/.agents/skills/setup/scripts/generate-hub.mjs`) produz o mesmo contrato visual a partir dos Markdown em `.scratch/`.
 - Proibido editar `.scratch/index.html` à mão. Correção de bug ou melhoria visual entra no gerador da skill `setup`. Patch manual some na próxima regeneração (`/setup`, `/to-tickets`, ou invocação direta do script).
 
 ## Markdown como documento
 
-Ticket, spec, regras (AGENTS/CLAUDE/CONTEXT) e relatório do grafo devem aparecer como Markdown tipográfico: tipografia proporcional, hierarquia de headings, listas, ênfase, task lists e blocos de código distintos da prosa.
+Ticket, spec, regras (AGENTS/CLAUDE/CONTEXT) e relatório do grafo usam Markdown tipográfico. Tipografia proporcional, hierarquia de headings, listas, ênfase, task lists e blocos de código distintos da prosa.
 
-Rejeitado: dump do fonte escapado dentro de `<pre>` (ou equivalente monoespaçado) como leitor principal. `pre`/`code` ficam para fences e código inline, não para o corpo do documento.
+O leitor principal rejeita dump do fonte escapado em `<pre>` (ou equivalente monoespaçado). `pre`/`code` ficam para fences e código inline.
 
 Detalhe de implementação do parser e da classe de corpo MD fica em tickets posteriores. Este contrato fixa o comportamento observável.
 
 ## Detalhe em side panel
 
-O detalhe de ticket e de spec abre em side panel à direita, com o board ainda visível em desktop. Em viewport estreita o panel ocupa a tela.
-
-Rejeitado como padrão de detalhe: modal centrado com backdrop blur.
+O detalhe de ticket e de spec abre em side panel à direita, com o board ainda visível em desktop. Em viewport estreita o panel ocupa a tela. Modal centrado com backdrop blur fica fora do padrão de detalhe.
 
 ## Tokens (direção)
 
@@ -39,7 +37,7 @@ Família neutra zinc/slate para fundo, surface, borda e texto. Accent verde (`#2
 
 Quando o repositório expõe cor de marca inferível (variáveis CSS como `--color-primary` / `--accent` / `--color-action`, `theme-color` / tile / mask-icon com croma útil, ou `primary` no Tailwind config), o gerador usa essa cor em `--accent` e `--success`, com `--accent-fg` escolhido por contraste. Neutros zinc permanecem. Sem sinal confiável, cai no verde padrão.
 
-Detalhe de valores CSS e nomes de variáveis fica no gerador. O contrato fixa a direção: neutro operacional com accent de marca do projeto (ou verde padrão), sem indigo/purple genérico de LLM como default do hub.
+Detalhe de valores CSS e nomes de variáveis fica no gerador. A direção dos tokens é neutro operacional com accent de marca do projeto (ou verde padrão). Indigo/purple genérico de LLM não entra como default do hub.
 
 ## Anti-patterns rejeitados
 
@@ -47,11 +45,11 @@ Vocabulário alinhado à skill `frontend-ui-engineering` (seção "Avoid the AI 
 
 | Padrão rejeitado | Motivo |
 |---|---|
-| Indigo/purple default (`#6366f1` e equivalentes) como primary de marca | Paleta "segura" de modelo; o hub deve parecer ferramenta operacional, não dashboard template |
-| Emoji nos labels de chrome (header, tabs, colunas, botões principais) | Rótulos instáveis e ruidosos para leitores de tela; chrome usa texto puro |
-| Lift (`translateY`) e sombra teatral no hover de cards | Feedback de board denso é borda ou surface, não profundidade cênica |
-| Markdown cru em `<pre>` como leitor de ticket/spec/regras/report | Impede leitura tipográfica; ver seção "Markdown como documento" |
-| CDN obrigatória (CSS/JS/fontes remotos) | O hub precisa abrir via `file://` offline |
-| Rounded/pill excessivo como identidade visual | Cantos máximos e pills em massa sinalizam estética genérica de LLM |
+| Indigo/purple default (`#6366f1` e equivalentes) como primary de marca | Paleta "segura" de modelo. O hub deve parecer ferramenta operacional. |
+| Emoji nos labels de chrome (header, tabs, colunas, botões principais) | Rótulos instáveis e ruidosos para leitores de tela. Chrome usa texto puro. |
+| Lift (`translateY`) e sombra teatral no hover de cards | Feedback de board denso usa borda ou surface. |
+| Markdown cru em `<pre>` como leitor de ticket/spec/regras/report | Impede leitura tipográfica. Ver seção "Markdown como documento". |
+| CDN obrigatória (CSS/JS/fontes remotos) | O hub precisa abrir via `file://` offline. |
+| Rounded/pill excessivo como identidade visual | Cantos máximos e pills em massa sinalizam estética genérica de LLM. |
 
 Melhorias futuras do gerador devem passar por este contrato. Se uma proposta reintroduz um padrão da tabela, ela é rejeitada até haver decisão explícita que atualize este documento e a seção correspondente em `SKILL.md`.

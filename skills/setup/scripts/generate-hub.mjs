@@ -38,7 +38,7 @@ try {
 
 // 1b. Infer project brand accent (CSS vars, theme-color, Tailwind) → hub tokens
 const DEFAULT_ACCENT = '#22c55e';
-const DEFAULT_ACCENT_FG = '#052e16';
+const DEFAULT_ACCENT_FG = '#09090b';
 
 function normalizeHex(raw) {
   if (!raw) return null;
@@ -98,8 +98,10 @@ function isUsableBrandHex(hex) {
   if (!n) return false;
   const L = relativeLuminance(n);
   const C = hexChroma(n);
-  // Skip near-black/near-white chrome colors and low-chroma neutrals
-  if (L < 0.08 || L > 0.92) return false;
+  // Near-white chrome
+  if (L > 0.92) return false;
+  // Near-black/near-gray: L baixa só rejeita com croma baixa; marca escura com croma alta passa
+  if (L < 0.08 && C < 0.12) return false;
   if (C < 0.12) return false;
   return true;
 }
@@ -609,6 +611,8 @@ function isSafeHref(href) {
   const h = String(href || '').trim();
   if (!h) return false;
   if (h.startsWith('#')) return true;
+  // Protocol-relative (//evil.com) e esquemas não-http
+  if (h.startsWith('//')) return false;
   // Relative path without a scheme (no ":")
   if (!h.includes(':')) return true;
   try {
@@ -1052,9 +1056,11 @@ const html = `<!DOCTYPE html>
       padding: 0.25rem 0.6rem;
       border-radius: 4px;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 0.3rem;
+      text-decoration: none;
+      box-sizing: border-box;
       transition: all 0.15s ease;
     }
     .btn-copy:hover { color: #fff; background: var(--accent); border-color: var(--accent); }
@@ -1231,7 +1237,7 @@ const html = `<!DOCTYPE html>
       border-top: 1px solid var(--surface-border);
       margin: 1.5em 0;
     }
-    .md-body a { color: #86efac; text-decoration: underline; }
+    .md-body a { color: var(--accent); text-decoration: underline; }
     .md-body code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 0.85em;
@@ -1373,10 +1379,8 @@ const html = `<!DOCTYPE html>
           <p style="font-size: 0.85rem; color: var(--text-muted);">Estrutura de dependências, comunidades de código e nós centrais do projeto.</p>
         </div>
         ${hasGraph ? `
-          <a href="${escapeHtml(graphHtmlRel)}" target="_blank" rel="noopener" style="text-decoration: none;">
-            <button class="btn-copy" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: var(--accent); color: var(--accent-fg); border-color: var(--accent);">
-              Abrir grafo em nova aba
-            </button>
+          <a class="btn-copy" href="${escapeHtml(graphHtmlRel)}" target="_blank" rel="noopener" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: var(--accent); color: var(--accent-fg); border-color: var(--accent);">
+            Abrir grafo em nova aba
           </a>
         ` : ''}
       </div>
@@ -1423,8 +1427,8 @@ const html = `<!DOCTYPE html>
             <div class="spec-card">
               <div class="spec-title">${escapeHtml(d.name)}</div>
               <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(d.relPath)}</div>
-              <a href="${escapeHtml(d.relPath)}" target="_blank" rel="noopener" style="text-decoration: none; margin-top: 0.5rem;">
-                <button class="btn-copy" style="width: 100%; justify-content: center;">Abrir diagrama</button>
+              <a class="btn-copy" href="${escapeHtml(d.relPath)}" target="_blank" rel="noopener" style="width: 100%; justify-content: center; margin-top: 0.5rem;">
+                Abrir diagrama
               </a>
             </div>
           `).join('')}
@@ -1716,6 +1720,7 @@ const html = `<!DOCTYPE html>
 
     function openSpecPanel(idx, opener) {
       const s = data.specs[idx];
+      if (!s) return;
       document.getElementById('panel-title').textContent = \`Spec: \${s.title}\`;
       const panelBody = document.getElementById('panel-body');
       panelBody.innerHTML = \`
@@ -1821,8 +1826,20 @@ if (useFixture) {
   if (isUsableBrandHex('#0d0d0d')) {
     smokeFailures.push('near-black #0d0d0d should not count as brand accent');
   }
+  if (!isUsableBrandHex('#4a154b')) {
+    smokeFailures.push('dark high-chroma #4a154b should count as brand accent');
+  }
   if (!isUsableBrandHex('#49f21b')) {
     smokeFailures.push('#49f21b should count as brand accent');
+  }
+  if (isSafeHref('//evil.com')) {
+    smokeFailures.push('protocol-relative //evil.com should be rejected');
+  }
+  if (!isSafeHref('./x.md') || !isSafeHref('graphify-out/graph.html')) {
+    smokeFailures.push('safe relative hrefs should be allowed');
+  }
+  if (isSafeHref('javascript:alert(1)') || isSafeHref('data:text/html,x')) {
+    smokeFailures.push('javascript:/data: hrefs should be rejected');
   }
   if (smokeFailures.length) {
     console.error('[Project Hub] Smoke --fixture FAILED:');
