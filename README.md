@@ -13,13 +13,18 @@ Cada pasta em `skills/` é autocontida (`SKILL.md` + arquivos de apoio).
 # skills.sh (instala em todos os agents configurados)
 npx skills add pedrosatin/skills
 
-# ou manual: copiar para a raiz compartilhada
+# ou por symlink, a partir do clone (uma skill por link)
 git clone https://github.com/pedrosatin/skills.git
-cp -r skills/skills/* ~/.agents/skills/
+./skills/link.sh
 ```
 
-OpenCode lê `~/.agents/skills` nativamente; Claude Code via symlink
-(`ln -s ../../.agents/skills/<nome> ~/.claude/skills/<nome>`).
+O `link.sh` cria `~/.agents/skills/<nome>` apontando para cada pasta de
+`skills/`, sem tocar nas skills de fora do repo. Ele é idempotente, pula
+pastas reais e apaga links quebrados de skills removidas do repo (também nas
+raízes de Claude Code, Codex e Gemini). Rode de novo depois de cada `git pull`.
+
+OpenCode lê `~/.agents/skills` nativamente. Claude Code, Codex e Gemini leem
+por symlink (`ln -s ../../.agents/skills/<nome> ~/.claude/skills/<nome>`).
 
 ## Conteúdo
 
