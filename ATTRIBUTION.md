@@ -9,8 +9,7 @@ atualize o commit abaixo.
 |---|---|---|---|
 | archify | [tt-a1i/archify](https://github.com/tt-a1i/archify) | `0e4949f910a8` (2026-09-28) | MIT |
 | graphify | [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify) | v0.9.71 | Apache-2.0 |
-| grill-me, grilling, teach, to-spec, to-tickets, research | [mattpocock/skills](https://github.com/mattpocock/skills) | `c55ee46073ed` (2026-09-18) | MIT |
-| browser-testing-with-devtools, code-review-and-quality, code-simplification, documentation-and-adrs, frontend-ui-engineering, interview-me, spec-driven-development | [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) | `2686b620fc1f` (2026-09-26) | MIT |
+| grilling, teach, to-spec, to-tickets, research | [mattpocock/skills](https://github.com/mattpocock/skills) | `c55ee46073ed` (2026-09-18) | MIT |
 | humanizer | [blader/humanizer](https://skills.sh/blader/humanizer) (ver `skills/humanizer/LICENSE`) | instalação via skills.sh | MIT © 2025 Siqi Chen |
 
 Exceção local: `grilling` foi adaptado para perguntar pela ferramenta de
