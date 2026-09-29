@@ -1,28 +1,28 @@
 #!/usr/bin/env node
-// board: verifica e abre a board do projeto (Project Hub em .scratch/index.html).
+// board: check and open the project board (Project Hub at .scratch/index.html).
 //
-// Uso:
+// Usage:
 //   node scripts/board.mjs [--root <dir>] [--print] [--json]
 //
 // Exit codes:
-//   0  board encontrada (aberta, ou apenas resolvida com --print/--json)
-//   1  board ausente: falta .scratch/ ou .scratch/index.html
-//   2  erro de uso (flag inválida)
+//   0  board found (opened, or only resolved with --print/--json)
+//   1  board missing: .scratch/ or .scratch/index.html is absent
+//   2  usage error (invalid flag)
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const USAGE = `Uso: node scripts/board.mjs [opções]
+const USAGE = `Usage: node scripts/board.mjs [options]
 
-Verifica se .scratch/index.html existe e abre a board no navegador padrão.
+Check whether .scratch/index.html exists and open the board in the default browser.
 
-Opções:
-  --root <dir>   raiz do projeto (default: sobe do cwd até achar .scratch/ ou o root do git)
-  --print, -p    resolve e imprime o caminho/URL, sem abrir o navegador
-  --json         imprime JSON com o resultado ({found, root, scratch, path, url, opened|guidance|openError})
-  --help, -h     mostra esta ajuda`;
+Options:
+  --root <dir>   project root (default: walk up from cwd to .scratch/ or the Git root)
+  --print, -p    resolve and print the path/URL without opening the browser
+  --json         print the result as JSON ({found, root, scratch, path, url, opened|guidance|openError})
+  --help, -h     show this help`;
 
 class UsageError extends Error {}
 
@@ -32,14 +32,14 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === '--root') {
       const value = argv[i + 1];
-      // Rejeita ausência de valor e o caso em que a próxima flag foi consumida
-      // como valor (`--root --print` vira root "--print").
-      if (!value || value.startsWith('-')) throw new UsageError('--root exige um diretório');
+      // Reject a missing value and cases where the next flag is consumed
+      // as a value (`--root --print` becomes root "--print").
+      if (!value || value.startsWith('-')) throw new UsageError('--root requires a directory');
       opts.root = value;
       i += 1;
     } else if (arg.startsWith('--root=')) {
       const value = arg.slice('--root='.length);
-      if (!value) throw new UsageError('--root exige um diretório');
+      if (!value) throw new UsageError('--root requires a directory');
       opts.root = value;
     } else if (arg === '--print' || arg === '-p') {
       opts.print = true;
@@ -48,7 +48,7 @@ function parseArgs(argv) {
     } else if (arg === '--help' || arg === '-h') {
       opts.help = true;
     } else {
-      throw new UsageError(`flag desconhecida: ${arg}`);
+      throw new UsageError(`unknown flag: ${arg}`);
     }
   }
   return opts;
@@ -62,7 +62,7 @@ function isDirectory(target) {
   }
 }
 
-// Um diretório chamado index.html não é board: só arquivo regular conta.
+// Only a regular file counts as a board; a directory named index.html does not.
 function isFile(target) {
   try {
     return fs.statSync(target).isFile();
@@ -71,8 +71,8 @@ function isFile(target) {
   }
 }
 
-// Sobe a partir de `start` procurando um diretório .scratch/. Para no primeiro
-// que encontrar ou na raiz do git, para não vazar para um repositório pai.
+// Walk up from `start` looking for a .scratch/ directory. Stop at the first
+// match or the Git root to avoid crossing into a parent repository.
 function locate(start) {
   const initial = path.resolve(start);
   let dir = initial;
@@ -92,9 +92,9 @@ function locate(start) {
   }
 }
 
-// Abre o alvo no navegador padrão. O argumento varia por plataforma. No Windows
-// o comando é constante e o alvo viaja só por variável de ambiente do processo
-// filho, para nunca interpolar caminho no source do PowerShell.
+// Open the target in the default browser. The argument depends on the platform. On Windows,
+// the command is constant and the target travels only through a child process
+// environment variable, so the path is never interpolated into PowerShell source.
 function openTarget(target) {
   const platform = process.platform;
   let command;
@@ -135,15 +135,15 @@ function openTarget(target) {
   if (result.error) {
     const reason =
       result.error.code === 'ENOENT'
-        ? `${command} não encontrado no PATH`
+        ? `${command} not found on PATH`
         : result.error.message;
     return { ok: false, reason };
   }
   if (result.signal) {
-    return { ok: false, reason: `${command} terminado por ${result.signal}` };
+    return { ok: false, reason: `${command} terminated by ${result.signal}` };
   }
   if (result.status !== 0) {
-    return { ok: false, reason: `${command} saiu com código ${result.status}` };
+    return { ok: false, reason: `${command} exited with code ${result.status}` };
   }
   return { ok: true };
 }
@@ -151,14 +151,14 @@ function openTarget(target) {
 function guidance({ hasScratch, indexPath }) {
   const lines = [];
   if (hasScratch) {
-    lines.push(`Existe .scratch/, mas falta ${indexPath}.`);
-    lines.push('Rode /setup (ou `node ~/.agents/skills/setup/scripts/generate-hub.mjs`) para gerar o Project Hub.');
+    lines.push(`The .scratch/ directory exists, but the following file is missing: ${indexPath}.`);
+    lines.push('Run /setup (or `node ~/.agents/skills/setup/scripts/generate-hub.mjs`) to generate the Project Hub.');
   } else {
-    lines.push('Não existe .scratch/ neste projeto.');
-    lines.push('Rode /setup para criar .scratch/, os docs e o .scratch/index.html.');
+    lines.push('This project has no .scratch/ directory.');
+    lines.push('Run /setup to create .scratch/, the docs, and .scratch/index.html.');
   }
-  lines.push('Depois use /to-spec e /to-tickets para popular a board com spec e tickets.');
-  lines.push('A board começa sem cards; spec e tickets adicionam os cards.');
+  lines.push('Then use /to-spec and /to-tickets to populate the board with a spec and tickets.');
+  lines.push('The board starts without cards; specs and tickets add cards.');
   return lines;
 }
 
@@ -168,7 +168,7 @@ function main() {
     opts = parseArgs(process.argv.slice(2));
   } catch (error) {
     if (error instanceof UsageError) {
-      console.error(`Erro: ${error.message}\n`);
+      console.error(`Error: ${error.message}\n`);
       console.error(USAGE);
       return 2;
     }
@@ -191,7 +191,7 @@ function main() {
         JSON.stringify({ found: false, root, scratch, path: null, url: null, guidance: lines }, null, 2),
       );
     } else {
-      console.log(`Board não encontrada em ${root}\n`);
+      console.log(`Board not found at ${root}\n`);
       for (const line of lines) console.log(`  ${line}`);
     }
     return 1;
@@ -230,10 +230,10 @@ function main() {
   console.log(`  ${url}`);
   if (opts.print) return 0;
   if (opened.ok) {
-    console.log('  Abrindo no navegador padrão...');
+    console.log('  Opening in the default browser...');
   } else {
-    console.log(`  Não consegui abrir o navegador (${opened.reason}).`);
-    console.log('  Abra o link acima manualmente.');
+    console.log(`  Could not open the browser (${opened.reason}).`);
+    console.log('  Open the link above manually.');
   }
   return 0;
 }

@@ -42,17 +42,17 @@ Read the file at the referenced path. The user or prompt will normally pass the 
 
 ## Claiming and Resolving Tickets
 
-### Preferência por subagents
+### Prefer subagents
 
-Ao implementar um ticket, despache um subagent dedicado para a fatia vertical com contexto limpo. O agente principal acompanha o operador e a fronteira de dependências.
+When implementing a ticket, dispatch a dedicated subagent for the vertical slice with a fresh context. The main agent works with the operator and tracks which tickets have their dependencies resolved.
 
 ### Claim
 
-Antes de começar, defina `Status: claimed` no arquivo do ticket.
+Before starting, set `Status: claimed` in the ticket file.
 
 ### Resolve
 
-Marque todos os critérios de aceite (`- [x]`), defina `Status: resolved` e atualize o dashboard:
+Check all acceptance criteria (`- [x]`), set `Status: resolved`, and refresh the dashboard:
 
 ```bash
 node ~/.agents/skills/setup/scripts/generate-hub.mjs

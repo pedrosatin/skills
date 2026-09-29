@@ -12,7 +12,7 @@ The issue tracker and domain docs should have been configured for this repo. If 
 
 1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching.
 
-2. Sketch the **test boundaries** (*fronteiras de teste*): the external surfaces where you will observe the feature's behavior without opening internal implementation. Prefer existing boundaries. Prefer the highest (outermost) boundary that still gives confidence. Propose new ones only when needed, and keep the count low. Ideally one.
+2. Sketch the **test boundaries**: the external surfaces where you will observe the feature's behavior without opening internal implementation. Prefer existing boundaries. Prefer the highest (outermost) boundary that still gives confidence. Propose new ones only when needed, and keep the count low. Ideally one.
 
 Check with the user that these test boundaries match their expectations.
 
@@ -63,7 +63,7 @@ Exception: if a prototype produced a snippet that encodes a decision more precis
 
 A list of testing decisions that were made. Include:
 
-- The agreed test boundaries (*fronteiras de teste*) and why they sit where they do
+- The agreed test boundaries and why they sit where they do
 - A description of what makes a good test (only test external behavior, not implementation details)
 - Which modules will be tested through those boundaries
 - Prior art for the tests (i.e. similar types of tests in the codebase)

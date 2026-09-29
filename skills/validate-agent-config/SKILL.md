@@ -1,59 +1,59 @@
 ---
 name: validate-agent-config
-description: Valida a configuração de agentes da máquina: entry points de instruções (CONTEXT.md, AGENTS.md, CLAUDE.md, GEMINI.md), symlinks, imports @, paths citados nos markdowns, frontmatter das skills (name/description, paridade com pasta e gatilhos de acionamento), alerta de sprawl, probes vivos e binários RTK/AXI referenciados. Use quando pedirem para validar, auditar, lintar ou checar a saúde de skills, rules, CONTEXT.md ou a integração entre harnesses.
+description: "Validate the machine's agent configuration: instruction entry points (CONTEXT.md, AGENTS.md, CLAUDE.md, GEMINI.md), symlinks, @ imports, paths cited in Markdown, skill frontmatter (name/description, directory matching and activation triggers), sprawl warnings, live probes, and referenced RTK/AXI binaries. Use when asked to validate, audit, lint, or check the health of skills, rules, CONTEXT.md, or integration across harnesses."
 ---
 
-# Validar configuração de agentes
+# Validate agent configuration
 
-Rode o validador e reporte o resultado. Ele sai com código 1 se achar problema.
+Run the validator and report the result. It exits with code 1 when it finds errors.
 
 ```sh
 bash "$HOME/.agents/skills/validate-agent-config/scripts/validate.sh"
 ```
 
-O que ele checa (nesta ordem):
+It checks the following, in this order:
 
-1. **Entry points de instruções**: arquivos que injetam o `~/.agents/CONTEXT.md`
-   em cada harness (OpenCode, Cursor CLI, Copilot, Claude Code e perfis w/p,
-   Codex, Gemini, Grok): existência, symlinks para o alvo correto, imports
-   `@caminho` dos `CLAUDE.md` e ponteiro do Copilot.
-2. **Higiene do CONTEXT.md**: paths `~/...` citados no texto, skills citadas por
-   caminho e binários citados (rtk, *-axi) presentes no PATH.
-3. **Skills (estrutura)** nas raízes `~/.agents/skills` e `~/.claude/skills`:
-   - symlink quebrado;
-   - diretório sem `SKILL.md`;
-   - mesma skill como diretório real nas duas raízes (drift; uma deve ser
-     symlink da outra, exceto para `ai-memory-*`);
-   - diretório real em `~/.claude/skills` fora de `ai-memory-*` ou `synced`
-     (deve morar em `~/.agents/skills` com symlink reverso).
-4. **Skills (lint de conteúdo)**:
-   - ID no formato kebab-case e limite de 64 caracteres;
-   - campo `name:` presente e idêntico ao nome do diretório;
-   - campo `description:` presente e com até 1024 caracteres;
-   - paridade de invocação (`disable-model-invocation: true` alinhado ao
+1. **Instruction entry points**: files that inject `~/.agents/CONTEXT.md`
+   into each harness (OpenCode, Cursor CLI, Copilot, Claude Code and its w/p
+   profiles, Codex, Gemini, Grok). Check existence, symlinks to the correct
+   target, `@path` imports in `CLAUDE.md`, and the Copilot pointer.
+2. **CONTEXT.md hygiene**: `~/...` paths cited in the text, skills referenced
+   by path, and referenced binaries (rtk, *-axi) available on PATH.
+3. **Skill structure** in `~/.agents/skills` and `~/.claude/skills`:
+   - broken symlinks;
+   - directories without `SKILL.md`;
+   - the same skill stored as a real directory in both roots (drift; one must
+     be a symlink to the other, except for `ai-memory-*`);
+   - real directories in `~/.claude/skills` outside `ai-memory-*` or `synced`
+     (they should live in `~/.agents/skills` with a symlink from the other root).
+4. **Skill content lint**:
+   - kebab-case IDs with a limit of 64 characters;
+   - a `name:` field matching the directory name;
+   - a `description:` field with at most 1024 characters;
+   - invocation parity (`disable-model-invocation: true` aligned with
      `agents/openai.yaml`);
-   - termos de gatilho em skills model-invoked (`use when`, `quando`,
+   - trigger terms in model-invoked skills (`use when`, `quando`,
      `use ao`, `aplique ao`);
-   - alerta de sprawl: SKILL.md com mais de 350 linhas sem pastas `references/`
-     ou `scripts/` (indica divisão em `references/`);
-   - referências relativas do corpo (`references/`, `scripts/`, `assets/`,
-     `agents/`) que resolvem para arquivos existentes;
-   - dependências entre skills que apontam para skills instaladas.
-5. **Probes vivos**:
-   - Copilot CLI (`copilot instruction list` com timeout de 5s e entrada
-     nula para evitar travamento em terminal interativo);
-   - presença dos executáveis `agent` e `opencode`.
-6. **Sincronização com o repositório**:
-   - entrada da skill no `ATTRIBUTION.md`;
-   - arquivos idênticos entre repositório e pasta instalada;
-   - skills autorais instaladas presentes no repositório.
+   - sprawl warnings: SKILL.md files longer than 350 lines without `references/`
+     or `scripts/` directories (suggest splitting into `references/`);
+   - relative references in the body (`references/`, `scripts/`, `assets/`,
+     `agents/`) resolving to existing files;
+   - dependencies on installed skills.
+5. **Live probes**:
+   - Copilot CLI (`copilot instruction list` with a 5-second timeout and
+     null input to avoid hanging in an interactive terminal);
+   - availability of the `agent` and `opencode` executables.
+6. **Repository sync**:
+   - the skill's entry in `ATTRIBUTION.md`;
+   - identical files in the repository and installed directory;
+   - locally authored installed skills present in the repository.
 
-## Como interpretar
+## Interpreting results
 
-- `ERRO` exige correção imediata: symlink com destino inválido, path
-  inexistente, SKILL.md ausente ou divergência entre `name:` e a pasta.
-- `AVISO` aponta desvio que aceita justificativa: skill sem gatilho por desenho
-  específico, arquivo longo sem referências externas, ausência de ferramenta opcional.
-- Após o ajuste, execute o validador novamente até obter status limpo.
-- Regra do layout: regra geral em `~/.agents/CONTEXT.md`; skill em
-  `~/.agents/skills/<nome>` com symlink nas harnesses.
+- `ERROR` requires immediate correction: symlinks with invalid targets, missing
+  paths, missing SKILL.md files, or a mismatch between `name:` and the directory.
+- `WARNING` indicates a deviation that may have a justification: a skill without
+  triggers by design, a long file without external references, or a missing optional tool.
+- After making corrections, rerun the validator until the status is clean.
+- Layout rule: general rules live in `~/.agents/CONTEXT.md`; skills live at
+  `~/.agents/skills/<nome>` with symlinks in the harness directories.

@@ -4,117 +4,117 @@ description: "Initialize a project for local specs, tickets, knowledge graph, an
 disable-model-invocation: true
 ---
 
-# /setup (e /init)
+# /setup (and /init)
 
-Configura o repositório para o ciclo completo de engenharia de software local:
-- **Specs & Tickets**: rastreamento local em `.scratch/` para uso direto com `/to-spec` e `/to-tickets`.
-- **Domain docs**: convenção single-context em `docs/agents/` e ADRs em `docs/adr/`.
-- **Knowledge Graph**: integração com o `graphify` para mapear dependências e nós centrais.
-- **Project Hub**: dashboard HTML interativo em `.scratch/index.html` com board Kanban de tickets, leitor de specs, regras e links do grafo.
+Configure the repository for the full local software engineering workflow:
+- **Specs & tickets**: local tracking in `.scratch/` for direct use with `/to-spec` and `/to-tickets`.
+- **Domain docs**: a single-context convention in `docs/agents/` and ADRs in `docs/adr/`.
+- **Knowledge graph**: integration with `graphify` to map dependencies and central nodes.
+- **Project Hub**: an interactive HTML dashboard in `.scratch/index.html` with a ticket Kanban board, spec reader, rules, and graph links.
 
-Este processo é conversacional: explore o ambiente, apresente o resumo do que encontrou, confirme com o usuário e gere a estrutura.
+This is a conversational process: explore the environment, summarize your findings, confirm with the user, and generate the structure. Use the user's or project's language for the conversation and deliverables. Agent instruction templates are maintained in English.
 
-## Processo
+## Process
 
-### 1. Explorar o projeto
+### 1. Explore the project
 
-Analise o repositório atual para entender o estado inicial:
-- **Nome do projeto**: `package.json`, `Cargo.toml`, `pyproject.toml` ou nome do diretório
-- **Arquivo de regras**: existe `AGENTS.md` ou `CLAUDE.md` no root? Já possui uma seção `## Agent skills`?
-- **Grafo de conhecimento**: existe a pasta `graphify-out/` com `graph.html`?
-- **Specs e tickets existentes**: existem arquivos em `.scratch/` ou `docs/specs`?
-- **Instalação do Graphify**: o binário `graphify` está acessível no PATH (`command -v graphify`) ou via python?
+Inspect the current repository to understand its initial state:
+- **Project name**: `package.json`, `Cargo.toml`, `pyproject.toml`, or directory name.
+- **Rules file**: is there an `AGENTS.md` or `CLAUDE.md` at the root? Does it already have an `## Agent skills` section?
+- **Knowledge graph**: is there a `graphify-out/` directory with `graph.html`?
+- **Existing specs and tickets**: are there files in `.scratch/` or `docs/specs`?
+- **Graphify installation**: is the `graphify` binary available on PATH (`command -v graphify`) or through Python?
 
-### 2. Apresentar descobertas e perguntar
+### 2. Present findings and ask
 
-Resuma o que encontrou e faça as perguntas da fronteira (uma por vez, liderando com a resposta recomendada):
+Summarize what you found and ask the questions needed before proceeding, one at a time, leading with the recommended answer. Adapt the example questions below to the user's language.
 
-**A. Instalação e execução do Graphify:**
-- Se o comando `graphify` **não** estiver instalado no sistema:
-  > *"O Graphify não está instalado no ambiente. Deseja instalar via `uv tool install graphifyy` ou `pip install graphifyy`? (recomendado: **sim**)"*
-- Se `graphify-out/graph.html` **não** existir no repositório:
-  > *"Deseja rodar o Graphify agora para mapear a base de código e gerar o grafo interativo? (recomendado: **sim**)"*
-  Se confirmado, execute `graphify .`. Se o usuário optar por não rodar agora, prossiga com o setup normalmente (o dashboard indicará que o grafo pode ser gerado a qualquer momento com `/graphify`).
+**A. Install and run Graphify:**
+- If the `graphify` command is **not** installed:
+  > *"Graphify is not installed in this environment. Would you like to install it with `uv tool install graphifyy` or `pip install graphifyy`? (recommended: **yes**)"*
+- If `graphify-out/graph.html` does **not** exist in the repository:
+  > *"Would you like to run Graphify now to map the codebase and generate the interactive graph? (recommended: **yes**)"*
+  If confirmed, run `graphify .`. If the user chooses not to run it now, continue setup normally. The dashboard will indicate that the graph can be generated at any time with `/graphify`.
 
-**B. Arquivo de regras do repositório:**
-- Escolha o arquivo para editar:
-  - Se `AGENTS.md` existe, use-o.
-  - Se `CLAUDE.md` existe, use-o.
-  - Se nenhum existir, proponha criar `AGENTS.md`.
-- Apresente ao usuário a prévia do bloco `## Agent skills`:
+**B. Repository rules file:**
+- Choose the file to edit:
+  - If `AGENTS.md` exists, use it.
+  - If `CLAUDE.md` exists, use it.
+  - If neither exists, propose creating `AGENTS.md`.
+- Show the user a preview of the `## Agent skills` block:
   ```markdown
   ## Agent skills
 
   ### Issue tracker
-  Rastreamento local em arquivos markdown sob `.scratch/<feature>/`.
-  Dashboard interativo em `.scratch/index.html`.
-  Veja `docs/agents/issue-tracker.md`.
+  Local tracking in Markdown files under `.scratch/<feature>/`.
+  Interactive dashboard at `.scratch/index.html`.
+  See `docs/agents/issue-tracker.md`.
 
   ### Domain docs
-  Convenção single-context (`docs/adr/`). Veja `docs/agents/domain.md`.
+  Single-context convention (`docs/adr/`). See `docs/agents/domain.md`.
   ```
-- Aguarde a confirmação do usuário antes de gravar.
+- Wait for the user's confirmation before writing.
 
-### 3. Escrever arquivos de configuração
+### 3. Write configuration files
 
-Após a confirmação:
-1. Copie os templates desta skill para o projeto:
+After confirmation:
+1. Copy this skill's templates into the project:
    - `templates/issue-tracker.md` → `docs/agents/issue-tracker.md`
    - `templates/domain.md` → `docs/agents/domain.md`
-2. Garanta a criação da pasta `.scratch/` no root do projeto.
-3. Adicione ou atualize o bloco `## Agent skills` no arquivo de regras escolhido (`AGENTS.md` ou `CLAUDE.md`). Não duplique a seção se ela já existir.
+2. Ensure the `.scratch/` directory exists at the project root.
+3. Add or update the `## Agent skills` block in the chosen rules file (`AGENTS.md` or `CLAUDE.md`). Do not duplicate the section if it already exists.
 
-### 4. Gerar o Project Hub Dashboard
+### 4. Generate the Project Hub dashboard
 
-Execute o script da skill:
+Run the skill's script:
 ```bash
 node scripts/generate-hub.mjs
 ```
-(ou `node ~/.agents/skills/setup/scripts/generate-hub.mjs <caminho-do-repo>`).
+Or use `node ~/.agents/skills/setup/scripts/generate-hub.mjs <repository-path>`.
 
-Se o usuário tiver passado a flag `--docs`, utilize:
+If the user supplied the `--docs` flag, use:
 ```bash
 node scripts/generate-hub.mjs --docs
 ```
 
-O HTML em `.scratch/index.html` é gerado e regenerado por esse script. Não edite o arquivo à mão; correção ou melhoria visual entra no gerador da skill `setup`.
+This script generates and regenerates `.scratch/index.html`. Do not edit the HTML file by hand. Make fixes and visual improvements in the `setup` skill's generator.
 
-#### Fixture e smoke estrutural
+#### Fixture and structural smoke check
 
-Para validar o gerador sem depender do `.scratch` do repositório do usuário, use a árvore `fixtures/minimal-scratch/` (spec + tickets de exemplo) e a flag `--fixture`:
+To validate the generator independently of the user's `.scratch` directory, use the `fixtures/minimal-scratch/` tree, which contains a sample spec and tickets, and the `--fixture` flag:
 
 ```bash
 node scripts/generate-hub.mjs --fixture
 ```
 
-Comportamento:
-- Coleta tickets/specs apenas da fixture da skill (`fixtures/minimal-scratch/`), ignorando path posicional e o `.scratch` do cwd.
-- Escreve o HTML de teste em `fixtures/hub-fixture.html` (ao lado da fixture, relativo à skill).
-- Roda smoke estrutural no HTML gerado e sai com código ≠ 0 se falhar. Verifica:
-  - presença de corpo MD (`.md-body`);
-  - marcadores de side panel (`side-panel` e `role="dialog"`);
-  - ausência de `<iframe`;
-  - presença de `--accent: #22c55e` (fixture sem marca → default);
-  - presença de `--accent-fg` e `project-hub-theme-source=default`;
-  - ausência do indigo de marca `--primary: #6366f1`;
-  - presença de `contentHtml` no payload JSON;
-  - checagens das helpers de inferência (`light-dark`, rejeição de near-black).
-- Em sucesso: exit 0 e log do path do HTML.
+Behavior:
+- Collects tickets and specs only from the skill's fixture (`fixtures/minimal-scratch/`), ignoring the positional path and the current directory's `.scratch`.
+- Writes the test HTML to `fixtures/hub-fixture.html`, beside the fixture and relative to the skill.
+- Runs a structural smoke check on the generated HTML and exits with a nonzero code on failure. Checks:
+  - presence of the Markdown body (`.md-body`);
+  - side panel markers (`side-panel` and `role="dialog"`);
+  - absence of `<iframe`;
+  - presence of `--accent: #22c55e`, the default for a fixture without a brand;
+  - presence of `--accent-fg` and `project-hub-theme-source=default`;
+  - absence of the brand indigo `--primary: #6366f1`;
+  - presence of `contentHtml` in the JSON payload;
+  - inference helper checks (`light-dark`, rejection of near-black colors).
+- On success: exits with code 0 and logs the HTML path.
 
-Flags existentes (`--docs`, `--open`, path posicional do repo) continuam iguais quando `--fixture` não está presente.
+Existing flags (`--docs`, `--open`, and the positional repository path) behave as before when `--fixture` is absent.
 
-### Design contract do Project Hub
+### Project Hub design contract
 
-Antes de alterar o gerador ou o visual do hub, leia o contrato em `templates/hub-design-contract.md`.
+Before changing the generator or the hub's appearance, read `templates/hub-design-contract.md`.
 
-O job da tela é escanear o Kanban, ler Markdown tipográfico (ticket, spec, regras, GRAPH_REPORT) e copiar o prompt de despacho. O artefato é single-file offline, sem CDN, com regeneração idempotente a partir dos Markdown em `.scratch/`. Tickets, specs, regras e relatório do grafo usam documento tipográfico. O detalhe abre em side panel à direita. A direção visual é neutro zinc/slate com accent verde por padrão; o gerador infere a cor de marca do projeto (CSS vars, theme-color, Tailwind) quando houver sinal confiável. Rejeitar indigo/purple default de LLM, emoji nos labels de chrome, lift/sombra teatral no hover e rounded/pill excessivo como identidade.
+The screen supports scanning the Kanban board, reading formatted Markdown (tickets, specs, rules, and GRAPH_REPORT), and copying a ticket dispatch prompt. The artifact is a single offline file with no CDN dependencies, regenerated idempotently from the Markdown in `.scratch/`. Tickets, specs, rules, and the graph report appear as formatted documents. Details open in a side panel on the right. Use neutral zinc/slate colors with a green accent by default. The generator infers the project's brand color from CSS variables, theme-color, or Tailwind when the evidence is reliable. Reject generic LLM indigo/purple defaults, emoji in interface labels, lift or theatrical shadows on hover, and excessive rounded corners or pills as a visual identity.
 
-### 5. Conclusão e orientações
+### 5. Finish and explain the workflow
 
-Apresente o link clicável do dashboard no terminal:
-`file://<caminho-absoluto>/.scratch/index.html`
+Present a clickable dashboard link in the terminal:
+`file://<absolute-path>/.scratch/index.html`
 
-Oriente o usuário sobre o fluxo de trabalho integrado:
-- **/to-spec**: crie especificações conversacionais diretamente em `.scratch/<feature>/spec.md`.
-- **/to-tickets**: quebre as specs em fatias verticais (*tracer bullets*) em `.scratch/<feature>/issues/<NN>-<slug>.md`.
-- Ambos os comandos atualizarão automaticamente o dashboard do projeto ao final de sua execução.
+Explain the integrated workflow to the user:
+- **/to-spec**: create conversational specifications directly in `.scratch/<feature>/spec.md`.
+- **/to-tickets**: split specs into vertical slices (*tracer bullets*) in `.scratch/<feature>/issues/<NN>-<slug>.md`.
+- Both commands automatically update the project dashboard when they finish.

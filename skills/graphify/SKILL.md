@@ -84,8 +84,8 @@ fi
 # 3. Fall back to python3
 if [ -z "$PYTHON" ]; then PYTHON="python3"; fi
 if ! "$PYTHON" -c "import graphify" 2>/dev/null; then
-    # Se graphify não estiver instalado, pergunte ao operador antes de prosseguir com a instalação
-    # ("Graphify não está instalado neste ambiente. Deseja instalar via 'uv tool install graphifyy' ou 'pip install graphifyy'?")
+    # If graphify is missing, ask the operator before installing it.
+    # ("Graphify is not installed in this environment. Install it with 'uv tool install graphifyy' or 'pip install graphifyy'?")
     if command -v uv >/dev/null 2>&1; then
         uv tool install --upgrade graphifyy -q 2>&1 | tail -3
         _UV_PY=$(uv tool run --from graphifyy python -c "import sys; print(sys.executable)" 2>/dev/null)
