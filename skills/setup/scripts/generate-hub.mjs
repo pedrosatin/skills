@@ -330,6 +330,8 @@ function isSafeHref(href) {
   const h = String(href || '').trim();
   if (!h) return false;
   if (h.startsWith('#')) return true;
+  // Relative path without a scheme (no ":")
+  if (!h.includes(':')) return true;
   try {
     const u = new URL(h);
     return u.protocol === 'http:' || u.protocol === 'https:';
@@ -518,7 +520,7 @@ const html = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(projectName)} — Project Hub</title>
+  <title>${escapeHtml(projectName)} · Project Hub</title>
   <style>
     :root {
       --bg: #09090b;
@@ -1071,7 +1073,7 @@ const html = `<!DOCTYPE html>
             ` : ''}
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--surface-border);">
               <span style="font-size: 0.75rem; color: var(--text-muted);">${s.storiesCount} User Stories declaradas</span>
-              <button type="button" class="btn-copy" onclick="openSpecPanel(${idx}, this)">Ver Spec Completa</button>
+              <button type="button" class="btn-copy" data-action="open-spec" data-spec-idx="${idx}">Ver Spec Completa</button>
             </div>
           </div>
         `).join('')}
@@ -1171,7 +1173,18 @@ const html = `<!DOCTYPE html>
   </script>
 
   <script>
-    const data = JSON.parse(document.getElementById('hub-data').textContent);
+    let data;
+    try {
+      data = JSON.parse(document.getElementById('hub-data').textContent);
+    } catch (err) {
+      const main = document.querySelector('main');
+      if (main) {
+        main.innerHTML = '<p>Erro ao carregar os dados do hub.</p>';
+      }
+      data = null;
+    }
+
+    if (data) {
     let activeFeature = 'all';
     let searchQuery = '';
     let panelOpener = null;
@@ -1179,6 +1192,8 @@ const html = `<!DOCTYPE html>
     const panelEl = document.getElementById('side-panel');
     const panelOverlay = document.getElementById('panel-overlay');
     const panelCloseBtn = document.getElementById('panel-close');
+    const panelFooter = document.getElementById('panel-footer');
+    const boardEl = document.getElementById('tab-board');
 
     // Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1279,7 +1294,7 @@ const html = `<!DOCTYPE html>
             <div class="card-blockers">
               \${t.blockersDetail.map(b => \`
                 <span class="blocker-chip \${b.resolved ? 'resolved' : 'pending'}">
-                  \${b.resolved ? '✓' : '⛔'} #\${escapeHtml(b.id)}
+                  \${b.resolved ? 'ok' : 'bloq'} #\${escapeHtml(b.id)}
                 </span>
               \`).join('')}
             </div>
@@ -1295,7 +1310,7 @@ const html = `<!DOCTYPE html>
           \` : ''}
 
           <div class="card-actions">
-            <button type="button" class="btn-copy" onclick="copyAgentPrompt('\${escapeHtml(t.id)}', '\${escapeJsString(t.title)}', '\${escapeJsString(t.relPath)}')">
+            <button type="button" class="btn-copy" data-action="copy-prompt" data-id="\${escapeHtml(t.id)}" data-title="\${escapeHtml(t.title)}" data-path="\${escapeHtml(t.relPath)}">
               Copiar prompt
             </button>
           </div>
@@ -1405,11 +1420,11 @@ const html = `<!DOCTYPE html>
       \`;
       const mdEl = panelBody.querySelector('.md-body');
       mdEl.innerHTML = t.contentHtml || \`<p>\${escapeHtml(t.content)}</p>\`;
-      document.getElementById('panel-footer').innerHTML = \`
-        <button type="button" class="btn-copy" onclick="copyAgentPrompt('\${escapeHtml(t.id)}', '\${escapeJsString(t.title)}', '\${escapeJsString(t.relPath)}')">
+      panelFooter.innerHTML = \`
+        <button type="button" class="btn-copy" data-action="copy-prompt" data-id="\${escapeHtml(t.id)}" data-title="\${escapeHtml(t.title)}" data-path="\${escapeHtml(t.relPath)}">
           Copiar prompt
         </button>
-        <button type="button" class="btn-copy" onclick="closePanel()">Fechar</button>
+        <button type="button" class="btn-copy" data-action="close-panel">Fechar</button>
       \`;
       openPanel(opener);
     }
@@ -1426,11 +1441,32 @@ const html = `<!DOCTYPE html>
         <div class="md-body"></div>
       \`;
       panelBody.querySelector('.md-body').innerHTML = s.contentHtml || \`<p>\${escapeHtml(s.content)}</p>\`;
-      document.getElementById('panel-footer').innerHTML = \`
-        <button type="button" class="btn-copy" onclick="closePanel()">Fechar</button>
+      panelFooter.innerHTML = \`
+        <button type="button" class="btn-copy" data-action="close-panel">Fechar</button>
       \`;
       openPanel(opener || document.activeElement);
     }
+
+    function onActionClick(e) {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      if (action === 'copy-prompt') {
+        e.preventDefault();
+        e.stopPropagation();
+        copyAgentPrompt(btn.dataset.id, btn.dataset.title, btn.dataset.path);
+      } else if (action === 'close-panel') {
+        e.preventDefault();
+        closePanel();
+      } else if (action === 'open-spec') {
+        e.preventDefault();
+        openSpecPanel(Number(btn.dataset.specIdx), btn);
+      }
+    }
+
+    if (boardEl) boardEl.addEventListener('click', onActionClick);
+    if (panelFooter) panelFooter.addEventListener('click', onActionClick);
+    document.getElementById('tab-specs')?.addEventListener('click', onActionClick);
 
     panelCloseBtn.addEventListener('click', closePanel);
     panelOverlay.addEventListener('click', closePanel);
@@ -1451,13 +1487,9 @@ const html = `<!DOCTYPE html>
         .replace(/'/g, '&#039;');
     }
 
-    function escapeJsString(str) {
-      if (!str) return '';
-      return String(str).replace(/'/g, "\\\\'");
-    }
-
     // Initial render
     renderBoard();
+    }
   </script>
 </body>
 </html>
@@ -1478,13 +1510,17 @@ if (useFixture) {
   if (!html.includes('role="dialog"')) {
     smokeFailures.push('missing role="dialog" on side panel');
   }
+  if (html.includes('<iframe')) {
+    smokeFailures.push('unexpected <iframe present');
+  }
+  if (!/--accent\s*:\s*#22c55e\b/.test(html)) {
+    smokeFailures.push('missing --accent: #22c55e');
+  }
   if (/--primary\s*:\s*#6366f1\b/i.test(html)) {
     smokeFailures.push('brand indigo --primary: #6366f1 present');
   }
-  const hasContentHtml = html.includes('contentHtml');
-  const hasTypographicHtml = html.includes('<h1') || html.includes('\\u003ch1') || html.includes('&lt;h1');
-  if (!hasContentHtml && !hasTypographicHtml) {
-    smokeFailures.push('missing contentHtml or typographic HTML payload (e.g. <h1)');
+  if (!html.includes('contentHtml')) {
+    smokeFailures.push('missing contentHtml in JSON payload');
   }
   if (smokeFailures.length) {
     console.error('[Project Hub] Smoke --fixture FAILED:');

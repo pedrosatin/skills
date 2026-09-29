@@ -2,7 +2,7 @@
 
 ### Issue tracker
 Rastreamento local em arquivos markdown sob `.scratch/<feature>/`.
-Visualizador visual interativo: `.scratch/index.html`.
+Dashboard interativo em `.scratch/index.html`.
 Veja `docs/agents/issue-tracker.md`.
 
 ### Domain docs

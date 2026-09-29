@@ -47,7 +47,7 @@ Resuma o que encontrou e faça as perguntas da fronteira (uma por vez, liderando
 
   ### Issue tracker
   Rastreamento local em arquivos markdown sob `.scratch/<feature>/`.
-  Visualizador visual interativo: `.scratch/index.html`.
+  Dashboard interativo em `.scratch/index.html`.
   Veja `docs/agents/issue-tracker.md`.
 
   ### Domain docs
@@ -93,8 +93,10 @@ Comportamento:
 - Roda smoke estrutural no HTML gerado e sai com código ≠ 0 se falhar. Verifica:
   - presença de corpo MD (`.md-body`);
   - marcadores de side panel (`side-panel` e `role="dialog"`);
+  - ausência de `<iframe`;
+  - presença de `--accent: #22c55e`;
   - ausência do indigo de marca `--primary: #6366f1`;
-  - presença de `contentHtml` ou HTML tipográfico no payload (ex. `<h1`).
+  - presença de `contentHtml` no payload JSON.
 - Em sucesso: exit 0 e log do path do HTML.
 
 Flags existentes (`--docs`, `--open`, path posicional do repo) continuam iguais quando `--fixture` não está presente.

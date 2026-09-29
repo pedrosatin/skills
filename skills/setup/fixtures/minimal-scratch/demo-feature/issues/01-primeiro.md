@@ -1,6 +1,6 @@
-# 01: Primeiro ticket da fixture
+# 01: Primeiro ticket com "aspas"
 
-**What to build:** Entregar a base da feature demo com Markdown tipografico
+**What to build:** Entregar a base da feature demo com Markdown tipográfico
 suficiente para o leitor do hub (headings, listas e task lists).
 
 **Blocked by:** None (can start immediately)
@@ -8,10 +8,10 @@ suficiente para o leitor do hub (headings, listas e task lists).
 **Status:** ready-for-agent
 
 - [ ] Spec lida e critérios claros
-- [x] Conteudo de exemplo em PT-BR sem emoji
-- [ ] Implementacao marcada como resolved ao concluir
+- [x] Conteúdo de exemplo em PT-BR sem emoji
+- [ ] Implementação marcada como resolved ao concluir
 
 ## Comments
 
-- Ticket ancora da fixture: deve aparecer na coluna ready-for-agent.
-- Use **negrito**, *italico* e `codigo` para exercitar o parser.
+- Ticket âncora da fixture: deve aparecer na coluna ready-for-agent.
+- Use **negrito**, *itálico* e `código` para exercitar o parser.

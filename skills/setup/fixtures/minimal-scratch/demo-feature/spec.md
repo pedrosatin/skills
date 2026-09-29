@@ -2,13 +2,13 @@
 
 ## Problem Statement
 
-Operadores precisam de uma feature de demonstracao com Markdown tipografico
-para validar o Project Hub sem depender de um repositorio real.
+Operadores precisam de uma feature de demonstração com Markdown tipográfico
+para validar o Project Hub sem depender de um repositório real.
 
 ## Solution
 
-Manter uma arvore minima sob `fixtures/minimal-scratch` com spec e tickets
-que exercitam headings, listas, enfase e bloqueios entre issues.
+Manter uma árvore mínima sob `fixtures/minimal-scratch` com spec e tickets
+que exercitam headings, listas, ênfase e bloqueios entre issues.
 
 ## Escopo
 
@@ -17,20 +17,20 @@ que exercitam headings, listas, enfase e bloqueios entre issues.
 
 ### Detalhes
 
-- Texto com **negrito**, *italico* e `codigo inline`
+- Texto com **negrito**, *itálico* e `código inline`
 - Lista numerada e com marcadores
-- Citacao curta:
+- Citação curta:
 
 > Fixture local, sem CDN e sem clones externos.
 
 ### Checklist da spec
 
-- [x] Headings e paragrafos
+- [x] Headings e parágrafos
 - [ ] Exemplo opcional ainda aberto
 
 ---
 
-Codigo de exemplo:
+Código de exemplo:
 
 ```js
 console.log('fixture ok');

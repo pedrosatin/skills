@@ -7,12 +7,12 @@ resolvido; no board da fixture deve aparecer como blocked.
 
 **Status:** ready-for-agent
 
-- [ ] Confirmar que o 01 esta resolved antes de comecar
-- [ ] Atualizar o hub apos a mudanca de status
+- [ ] Confirmar que o 01 está resolved antes de começar
+- [ ] Atualizar o hub após a mudança de status
 - [ ] Fechar este ticket com Comments
 
 ## Comments
 
-- Dependencia proposital: `Blocked by: 01` forca a coluna blocked enquanto
+- Dependência proposital: `Blocked by: 01` força a coluna blocked enquanto
   o 01 permanece ready-for-agent.
-- Texto com lista, **enfase** e trecho `inline` para o smoke de MD.
+- Texto com lista, **ênfase** e trecho `inline` para o smoke de MD.
