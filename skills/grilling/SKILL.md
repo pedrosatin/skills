@@ -5,21 +5,34 @@ description: Grill the user relentlessly about a plan, decision, or idea. Use wh
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
-Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
+Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round, then wait for the user's answers before the next round.
 
-Format a round like so:
+## Ask through the harness question UI
 
-```
-❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
+Put the round's questions to the user through the harness's structured question interface, so they answer by picking options instead of typing a prose reply. Do not post the frontier as a numbered list in the chat and wait for text.
 
-➡️ <your recommended answer>
+The control has a different name in each harness:
 
----
+| Harness | Tool | Shape |
+| --- | --- | --- |
+| Claude Code | `AskUserQuestion` | up to 4 questions per call, 2–4 options each, header ≤ 12 chars, optional multi-select; an "Other" free-text choice is always added |
+| OpenCode | `question` | a list of questions, each with a header, the question text, and options; the user moves between them and can type a custom answer |
+| Codex CLI | `request_user_input` | option-based question prompt (Plan mode) |
+| Gemini CLI | `ask_user` | one or more questions, from yes/no to multiple choice to open-ended |
+| Cursor CLI | `AskQuestion` | question with selectable options |
 
-❓ **Q2** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
+Use whichever one the current harness exposes. Check your tool list for the right name before giving up on it.
 
-➡️ <your recommended answer>
-```
+Build each question like this:
+
+- **header** — one to four words naming the decision.
+- **question** — the decision and the trade-offs that make the options meaningful. Put longer context in the message that carries the call.
+- **options** — the real branches, two to four of them, each with a one-line description of what choosing it commits to. List your recommended answer **first** and mark it `(Recommended)`.
+- **multi-select** — only when more than one branch can hold at the same time.
+
+If the harness limits how many questions one call takes (Claude Code allows four), split the round across several calls. Gather the whole round before asking the next one.
+
+If the harness has no question tool, or the user turned it off, fall back to prose: number each question and state your recommended answer under it.
 
 Each round the user answers reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
 

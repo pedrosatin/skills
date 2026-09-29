@@ -1,8 +1,9 @@
 # Atribuição
 
 Skills autorais deste repo são MIT (ver `LICENSE`). As demais são cópias
-vendored de projetos MIT, mantidas sem modificação para facilitar sync.
-Atualizações: sobrescreva a pasta e atualize o commit abaixo.
+vendored de projetos MIT, mantidas sem modificação (exceto `grilling`, ver
+nota abaixo) para facilitar sync. Atualizações: sobrescreva a pasta e
+atualize o commit abaixo.
 
 | Skill | Origem | Commit vendored | Licença |
 |---|---|---|---|
@@ -11,6 +12,11 @@ Atualizações: sobrescreva a pasta e atualize o commit abaixo.
 | grill-me, grilling, teach, to-spec, to-tickets, research | [mattpocock/skills](https://github.com/mattpocock/skills) | `c55ee46073ed` (2026-09-18) | MIT |
 | browser-testing-with-devtools, code-review-and-quality, code-simplification, documentation-and-adrs, frontend-ui-engineering, interview-me, spec-driven-development | [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) | `2686b620fc1f` (2026-09-26) | MIT |
 | humanizer | [blader/humanizer](https://skills.sh/blader/humanizer) (ver `skills/humanizer/LICENSE`) | instalação via skills.sh | MIT © 2025 Siqi Chen |
+
+Exceção local: `grilling` foi adaptado para perguntar pela ferramenta de
+Q&A nativa de cada harness em vez de só despejar texto no chat. Ao
+ressincronizar com o upstream, reaplique a seção "Ask through the harness
+question UI".
 
 Autorais (MIT, este repo): unslop-br, publication-hygiene, babysit-prs,
 pr-loop, validate-agent-config, setup.
