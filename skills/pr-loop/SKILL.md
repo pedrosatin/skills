@@ -1,148 +1,152 @@
 ---
 name: pr-loop
-description: "Loop de entrega com subagents: por atividade de um backlog, um subagent implementa o escopo numa worktree, um segundo faz code review mais auditoria unslop-br da prosa, um terceiro aplica os ajustes, e o agente principal cuida do git, abre a PR e mescla; depois o loop avança para a próxima atividade. Use quando o usuário pedir explicitamente esse fluxo: '/pr-loop', 'roda o loop de entrega', 'fluxo completo com subagents', 'trabalha a lista do roadmap com review e correção'. NÃO carregar para um pedido simples de PR ou implementação avulsa, que não pede loop nem merge automático."
+description: "Deliver backlog items with subagents: one implements in a worktree, a second reviews code and prose, a third applies corrections, and the main agent publishes the PR and merges with authorization before moving on. Use when explicitly requested through '/pr-loop', 'run the delivery loop', 'full workflow with subagents', 'roda o loop de entrega', 'fluxo completo com subagents', or 'trabalha a lista do roadmap com review e correção'. Do not invoke for a standalone PR or implementation request that does not ask for this loop and merge workflow."
 ---
 
 # pr-loop
 
-Loop de entrega em voltas. Cada volta consome uma atividade de um backlog e passa por cinco passos: preparação, implementação (subagent), revisão dupla (subagent), correção (subagent) e git flow com merge (agente principal). O fluxo entre passos é sequencial por construção: cada etapa depende do resultado da anterior, então os três subagents rodam um depois do outro, nunca em paralelo.
+Deliver one backlog item per iteration through preparation, implementation by a subagent, code and prose review by a second subagent, corrections by a third subagent, and Git publication and merge by the main agent. Each step depends on the previous one, so the three subagents run sequentially.
 
-O agente principal é o único que executa git de consequência (push, rebase, force, merge) e falas com o GitHub. Os subagents escrevem código e commits locais, nada além disso. Essa fronteira existe porque push e merge são irreversíveis e o agente principal tem o contexto completo da conversa com o operador.
+The main agent alone performs pushes, rebases, force pushes, merges, and GitHub operations. Subagents write code and create local commits. The main agent has the full conversation and the operator's authorization for external actions.
 
-## Invariantes de toda volta
+## Invariants for each iteration
 
-1. Merge pede autorização. Um pedido do loop autoriza o fluxo até a PR aberta; o merge de cada PR precisa de autorização na conversa, salvo quando o operador autorizar o lote inteiro de antemão ("mescla tudo", "vai até o fim"). Revisar não é mesclar.
-2. Commit, PR e issue sem trailer de IA: nada de Co-authored-by, "Generated with" ou menção a modelo. Autor e committer são sempre o operador humano; nunca use --author nem variáveis GIT_AUTHOR/GIT_COMMITTER.
-3. Testes e typecheck verdes antes de todo commit. Os comandos vêm do passo 0; se um pacote não tem teste, o implementador cria seguindo o padrão do repo.
-4. /tmp é volátil. A worktree pode sumir entre sessões; a branch precisa estar no origin antes de a volta ser considerada encerrada. Para retomar: `git worktree add -b <branch> /tmp/opencode/<slug> origin/<branch>` ou, sem branch local, a partir de origin/main.
-5. GitHub via `gh-axi` (não gh cru), leitura de saída TOON sem pipe para jq.
-6. Prosa que entra em commit, PR, docs, comentário ou string de UI segue o unslop-br (resumo no passo 4; arquivo completo em `../unslop-br/SKILL.md`).
-7. Verificação com rtk: use `pnpm -C <pkg> <script>`, não `pnpm --filter <pkg> <script>`. O rtk ainda não repassa `--filter` para o `tsc` e roda o compilador na raiz do monorepo, que imprime o help com exit 1 e finge que o typecheck falhou. Um subagent que morre no meio (limite de uso, timeout) pode deixar trabalho pronto e não commitado na worktree: inspecione `git status` + `git diff` antes de reimplantar do zero.
+1. Merging requires authorization. Requesting the loop authorizes work through opening a PR. Each merge requires authorization in the conversation unless the operator approved the entire batch beforehand, for example "merge everything", "mescla tudo", or "vai até o fim".
+2. Commits, PRs, and issues must have no AI attribution: no Co-authored-by, "Generated with", or model attribution. Author and committer are always the human operator; never use --author or GIT_AUTHOR/GIT_COMMITTER variables.
+3. Tests and typecheck must pass before each commit. Discover the commands in step 0. If a package has no tests, the implementer adds them following the repo's conventions.
+4. /tmp is volatile. A worktree may disappear between sessions; its branch must be on origin before the iteration is considered finished. Resume with `git worktree add -b <branch> /tmp/opencode/<slug> origin/<branch>`, or start from origin/main if there is no remote branch.
+5. Use `gh-axi` for GitHub. Read TOON output without piping it to jq.
+6. Follow the target project's language conventions for commits, PRs, docs, comments, and UI strings. Use the user's language for conversation. For PT-BR prose, apply `../unslop-br/SKILL.md`. For English prose, use an installed English writing skill such as `humanizer`; if none is available, apply the prose rules in step 4. Do not apply Portuguese vocabulary rules to other languages.
+7. For checks through rtk, use `pnpm -C <pkg> <script>`. rtk does not yet forward `--filter` to `tsc`; `pnpm --filter <pkg> <script>` can run the compiler at the monorepo root, print help, and exit 1 as a false typecheck failure. A subagent interrupted by a usage limit or timeout may leave completed work uncommitted: inspect `git status` and `git diff` before starting over.
 
-## Quando subagent não estiver disponível
+## When subagents are unavailable
 
-Limite de uso, harness sem Task tool ou subagent que falhou de forma não transitiva: execute os passos 1 a 3 em linha, sequencialmente, na conversa principal, mantendo a mesma ordem e as mesmas regras (escopo, verificação, commit sem trailer). A revisão própria precisa ser mais rigorosa que a de subagent, porque não tem olhar fresco: releia o diff inteiro, confira no código os fatos que os testes presumem (helpers, seeds, contagens) e rode a auditoria de prosa citação por citação antes do commit.
+If usage limits, missing subagent tools, or a persistent subagent failure prevent delegation, run steps 1 through 3 sequentially in the main conversation. Keep the same scope, checks, and attribution rules. Review the full diff, verify in the code the facts assumed by the tests (helpers, seeds, counts), and audit each quoted passage before committing. Self-review requires extra care because it lacks a fresh reader.
 
-## Passo 0, preparar a atividade
+## Step 0, prepare the item
 
-- Fonte das atividades: roadmap do repo (no todo-jarvis, `docs/05-roadmap.md` e `docs/06-questoes-abertas.md`) ou lista dita pelo operador. Confirme a lista e a ordem antes da primeira volta.
-- `git fetch origin` e worktree limpa: `git worktree add -b feat/<slug> /tmp/opencode/<slug> origin/main`. Diretório /tmp/opencode já é pré-aprovado. Se a worktree já existe de uma volta anterior, entre nela e confira o estado (`git status`, `git log --oneline -3`).
-- Descubra os comandos de verificação lendo os scripts do package.json de cada pacote afetado (test, typecheck, lint). Anote-os: entram nos prompts dos três subagents.
-- Feche o escopo em poucas frases: o que entra, o que fica de fora, critério de pronto. Escopo aberto gera PR inflada e revisão rasa.
+- Take the items from the repo roadmap (in todo-jarvis, `docs/05-roadmap.md` and `docs/06-questoes-abertas.md`) or the operator's list. Confirm the list and order before the first iteration.
+- Run `git fetch origin` and create a clean worktree with `git worktree add -b feat/<slug> /tmp/opencode/<slug> origin/main`. The /tmp/opencode directory is preapproved. If a worktree remains from a previous iteration, enter it and inspect `git status` and `git log --oneline -3`.
+- Discover the validation commands in each affected package.json (test, typecheck, lint). Include them in all three subagent prompts.
+- Define the scope, exclusions, and completion criteria in a few sentences. An open scope makes the PR larger and harder to review.
+- Establish the language for each output from the project's instructions and existing files or commit history. Pass that choice to all three subagents.
 
-## Passo 1, subagent implementador
+## Step 1, implementation subagent
 
-O subagent começa sem contexto nenhum; o prompt precisa ser autossuficiente. Estrutura que funciona:
-
-```
-Você implementa [ESCOPO FECHADO] no repositório [CAMINHO DA WORKTREE], branch [BRANCH].
-Não faça push, não faça rebase, não toque em outros repositórios.
-
-CONTEXTO: [stack do repo em 2-4 linhas: linguagem, framework, persistência,
-o que o subsistema afetado faz e como. Arquivos-chave com caminho.]
-
-REQUISITOS:
-- [numerados, verificáveis, com arquivo-alvo quando souber]
-- Testes: [o que cobrir, seguindo o padrão do repo em ...]
-
-REGRAS DE ESTILO: siga a convenção do repo (leia arquivos vizinhos antes de
-escrever). Comentários em PT-BR explicando mecanismo. PROIBIDO em texto que
-você escrever: travessão (— ou –), gerúndio de cauda, "não é X, é Y",
-vocabulário inflado (crucial/robusto/essencial/seamless), alavancar/
-orquestrar/facilitar. Voz ativa, mecanismo concreto.
-
-VERIFICAÇÃO OBRIGATÓRIA antes do commit: [comandos de teste e typecheck].
-Se quebrar, conserte.
-
-COMMIT: um commit local com tudo, mensagem PT-BR no estilo do repo log.
-Sem trailer de IA, sem Co-authored-by, sem --author.
-
-RELATÓRIO FINAL: o que mudou por arquivo, contagens de teste, hash do commit,
-e o que você decidiu não fazer com o porquê.
-```
-
-## Passo 2, subagent revisor (somente leitura)
-
-Revisão dupla num subagent só: código e prosa. O prompt pede veredito, não educação; achados com severidade e localização exata viram insumo direto do corretor.
+The subagent starts without context, so its prompt must be self-contained. Use this structure:
 
 ```
-Você é revisor sênior fazendo revisão SOMENTE-LEITURA (não edite, não commite)
-da PR [N] / do diff [main...branch] no repositório [WORKTREE].
-Diff: git -C [WORKTREE] diff main...[BRANCH]. Corpo da PR: [arquivo-espelho].
+Implement [DEFINED SCOPE] in repository [WORKTREE PATH], branch [BRANCH].
+Do not push, rebase, or touch other repositories.
+
+CONTEXT: [repo stack in 2-4 lines: language, framework, persistence,
+what the affected subsystem does and how. Key files with paths.]
+
+REQUIREMENTS:
+- [numbered, verifiable items, with target files when known]
+- Tests: [what to cover, following the repo's pattern in ...]
+
+STYLE: follow the repo's conventions; read neighboring files before writing.
+Language for comments, docs, UI strings, and commits: [project conventions].
+Explain the mechanism in comments. Apply [writing skill selected for the
+output language, or the prose rules from step 4]. Use active voice and
+concrete mechanisms. Avoid decorative dashes, trailing filler clauses,
+false dichotomies, inflated vocabulary, and vague verbs.
+
+REQUIRED CHECKS before committing: [test and typecheck commands].
+Fix failures.
+
+COMMIT: one local commit with the full change; use the repo log's language
+and style. No AI attribution, Co-authored-by, or --author.
+
+FINAL REPORT: changes by file, test counts, commit hash,
+and omitted work with reasons.
+```
+
+## Step 2, review subagent (read only)
+
+One subagent reviews both code and prose. Request a verdict and findings with severity and exact locations so the correction agent can act on them.
+
+```
+Perform a READ-ONLY senior review (no edits or commits) of PR [N] /
+diff [main...branch] in repository [WORKTREE].
+Diff: git -C [WORKTREE] diff main...[BRANCH]. PR body: [local copy file].
 Commits: git -C [WORKTREE] log main..[BRANCH].
 
-CONTEXTO: [mesmas 2-4 linhas do implementador]
+CONTEXT: [same 2-4 lines as the implementer]
 
-PARTE 1, código: corretude, segurança (auth, validação, ownership, CSRF,
-segredo em log), edge cases, regressões, cobertura de teste. Não presuma
-correto; verifique claims de estado (branch, main, CI) no git antes de usar.
+PART 1, code: correctness, security (auth, validation, ownership, CSRF,
+secrets in logs), edge cases, regressions, and test coverage. Verify claims
+about branch, main, and CI state in Git before relying on them.
 
-PARTE 2, auditoria unslop-br: primeiro leia ../unslop-br/SKILL.md
-e aplique os critérios a: corpo da PR, mensagens de commit, hunks de docs,
-comentários de código, strings de UI, descrições de teste. Cace: travessão,
-lista mecânica de rótulo em negrito + dois-pontos, falsa dicotomia, gerúndio
-de cauda, vocabulário inflado, verbos pretesiosos, metáforas, locuções
-prolixas, emojis, bajulação. Proporcionalidade: termo técnico legítimo e
-referência normativa (RFC, nome de protocolo) não são slop; formato
-pré-existente de arquivo inteiro fica fora do escopo da PR.
+PART 2, prose: apply [writing skill selected for the output language,
+or the prose rules from step 4] to the PR body, commit messages, changed
+documentation, code comments, UI strings, and test descriptions.
+For PT-BR, first read ../unslop-br/SKILL.md. For English, use an installed
+English writing skill such as humanizer when available.
+Find decorative dashes, mechanical bold-label lists, false dichotomies,
+trailing filler clauses, inflated vocabulary, pretentious verbs, metaphors,
+wordy phrases, emojis, and flattery. Legitimate technical terms and normative
+references (RFCs, protocol names) are acceptable. Preexisting formatting
+outside the changed text is outside this review's scope.
 
-RELATÓRIO:
-## Parte 1 — Código
-- Veredito: aprovado / aprovar com ajustes / reprovar
-- Achados numerados: severidade (bloqueante/importante/menor/nit), arquivo:linha, sugestão
-## Parte 2 — unslop-br
-- Tabela: texto exato, onde, regra violada, reescrita
-- Inventário completo de travessões e vocabulário proibido com localização
-## Conclusão
-- Lista ordenada do que mudar antes do merge (vazia se nada)
+REPORT:
+## Part 1, code
+- Verdict: approved / approve with changes / rejected
+- Numbered findings: severity (blocking/important/minor/nit), file:line, suggestion
+## Part 2, prose
+- Table: exact text, location, violated rule, rewrite
+- Full inventory of decorative dashes and prohibited vocabulary with locations
+## Conclusion
+- Ordered changes required before merge (empty if none)
 ```
 
-## Passo 3, subagent corretor
+## Step 3, correction subagent
 
-Recebe a lista ordenada do revisor transformada em instruções numeradas com arquivo:linha e a correção desejada. Pule este passo se a conclusão do revisor for vazia.
+Turn the reviewer's ordered findings into numbered instructions with file:line and the intended correction. Skip this step if the reviewer requires no changes.
 
 ```
-Você aplica correções de revisão na worktree [WORKTREE], branch [BRANCH].
-Sem push, sem rebase, sem tocar outros repositórios. Um commit local no final.
+Apply review corrections in worktree [WORKTREE], branch [BRANCH].
+Do not push, rebase, or touch other repositories. Create one local commit.
 
-[LISTA NUMERADA: cada item com arquivo:linha, o problema, a correção exata.
-Para bugs, inclua o caso de teste novo que prova a correção.]
+[NUMBERED LIST: file:line, problem, and exact correction for each item.
+For bugs, include the new test case that demonstrates the correction.]
 
-REGRAS DE ESTILO: [mesmo bloco anti-slop do implementador]
+STYLE: [same language conventions and prose rules as the implementer]
 
-VERIFICAÇÃO OBRIGATÓRIA antes do commit: [comandos]. Se quebrar, conserte.
+REQUIRED CHECKS before committing: [commands]. Fix failures.
 
-COMMIT: [regras: mensagem PT-BR estilo do repo, sem trailer de IA]
+COMMIT: [repo log's language and style, no AI attribution]
 
-RELATÓRIO FINAL: mudanças por arquivo, contagens de teste, hash do commit,
-itens não aplicados com o porquê.
+FINAL REPORT: changes by file, test counts, commit hash,
+and unapplied items with reasons.
 ```
 
-## Passo 4, git flow e merge (agente principal)
+## Step 4, Git publication and merge (main agent)
 
-Ordem comprovada nesta ordem exata:
+Follow this order:
 
-1. Conferir o commit do corretor: mensagem sem trailer de IA (`git log -1 --format=%B | grep -ci 'co-authored\|generated with'` deve dar 0).
-2. `git push origin <branch>`.
-3. PR com `gh-axi pr create --base main --head <branch> --title ... --body-file <arquivo>`, corpo escrito com as regras de prosa abaixo.
-4. Se o main já contém a árvore da feature (squash de PR anterior da mesma branch), limpe a duplicação: `git rebase --onto origin/main <commit-antigo> <branch>`, confirme árvore idêntica com `git rev-parse <novo>^{tree} <antigo>^{tree}` e então `git push --force-with-lease`. Force só em branch própria não mesclada e só depois da conferência de árvore.
-5. Merge com autorização em mãos: `gh-axi pr merge <N> --squash --delete-branch --subject "... (#N)" --body "..."` com subject e corpo explícitos e sem trailer de IA.
-6. Limpeza: `git pull --ff-only` no repo principal, `git worktree remove --force <worktree>`, `git branch -D <branch>`.
-7. Se o repo publica sozinho na main (CI de deploy), confira com `gh-axi run list` que o run do merge passou; migrações e secrets que a CI não cobre ficam como follow-up anotado.
+1. Inspect the correction commit. Its message must have no AI attribution (`git log -1 --format=%B | grep -ci 'co-authored\|generated with'` must print 0).
+2. Run `git push origin <branch>`.
+3. Create the PR with `gh-axi pr create --base main --head <branch> --title ... --body-file <file>`. Apply the prose rules below to its body.
+4. If main already contains the feature tree from an earlier squash of the same branch, remove the duplicate history with `git rebase --onto origin/main <old-commit> <branch>`. Confirm identical trees with `git rev-parse <new>^{tree} <old>^{tree}`, then run `git push --force-with-lease`. Force push only your own unmerged branch after checking tree equality.
+5. With merge authorization, run `gh-axi pr merge <N> --squash --delete-branch --subject "... (#N)" --body "..."`. Set the subject and body explicitly without AI attribution.
+6. Clean up with `git pull --ff-only` in the main repo, `git worktree remove --force <worktree>`, and `git branch -D <branch>`.
+7. If main deploys automatically through CI, check the merge run with `gh-axi run list`. Record migrations and secrets not covered by CI as follow-up work.
 
-Corpo de PR sem slop, regras práticas: bullets de arquivo como `- `caminho`: descrição` sem negrito; headings em sentence case; dois-pontos só antes de lista, código ou definição pontual; zero travessão, zero falsa dicotomia, zero gerúndio de cauda, zero emoji, zero bajulação; cada afirmação aponta mecanismo, parâmetro ou número (contagens de teste, hash, RFC). Descreva o que o sistema faz, nunca a sensação que causa.
+For the PR body, use plain file bullets such as "- `path`: description", sentence case headings, and colons only before lists, code, or definitions. Avoid decorative dashes, false dichotomies, trailing filler clauses, emojis, and flattery. Support claims with a mechanism, parameter, or number (test counts, hashes, RFCs). Describe what the system does. Apply vocabulary rules appropriate to the prose's language. Keep code identifiers, protocol names, and quoted source material intact.
 
-## Passo 5, próxima atividade
+## Step 5, next item
 
-- Atualize roadmap, questões abertas ou ADRs que a atividade tocar (o corretor commita junto quando fizer sentido).
-- Relate a volta em poucas linhas: escopo, PR/commit, contagens de teste, follow-ups anotados.
-- Volte ao passo 0 com a próxima atividade da lista.
+- Update the roadmap, open questions, and ADRs affected by the item. Include those changes in the correction commit when appropriate.
+- Report the iteration briefly: scope, PR/commit, test counts, and recorded follow-ups.
+- Return to step 0 for the next item.
 
-Pare o loop quando: a lista acabar; o operador pedir pausa; ou a atividade exigir ação externa que você não pode fazer (gravar secret, testar em aparelho real, decisão de produto em aberto). Nesses casos, entregue o estado e a lista de follow-ups.
+Stop when the list ends, the operator requests a pause, or an item requires an external action you cannot perform (setting a secret, testing on a physical device, or settling an open product decision). Report the current state and follow-ups.
 
-## Autoverificação antes de avançar de passo
+## Check before advancing
 
-- Passo 1 → 2: worktree tem commit local, testes verdes, escopo entregue.
-- Passo 2 → 3: você transformou a conclusão do revisor em lista numerada com localização exata (ou declarou "sem ajustes" e pulou para o passo 4).
-- Passo 3 → 4: testes verdes de novo, commit conferido quanto a trailer.
-- Passo 4 → 5: PR mesclada com autorização, main atualizada localmente, worktree e branch removidas, CI da main verde quando existir.
+- Step 1 → 2: worktree has a local commit, tests pass, and the scope is delivered.
+- Step 2 → 3: review conclusions have become numbered instructions with exact locations, or no changes are needed and you skip to step 4.
+- Step 3 → 4: tests pass again and the commit has been checked for attribution.
+- Step 4 → 5: PR merged with authorization, local main updated, worktree and branch removed, and main CI passing when present.

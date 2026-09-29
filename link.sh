@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Linka cada skill de skills/ em ~/.agents/skills/<nome>, um symlink por skill.
-# Uso: ./link.sh. Idempotente. Pastas reais e links alheios ao repo não são
-# alterados; o script avisa e pula.
+# Link each skill in skills/ to ~/.agents/skills/<name>, one symlink per skill.
+# Usage: ./link.sh. Idempotent. Warn and skip existing directories and links
+# pointing outside the repo.
 set -euo pipefail
 shopt -s nullglob
 repo="$(cd "$(dirname "$0")" && pwd)/skills"
@@ -14,11 +14,11 @@ for src in "$repo"/*/; do
   if [ -L "$target" ]; then
     case "$(readlink "$target")" in
       "$repo"/*) ;;
-      *) echo "pulado: $target aponta para fora do repo" >&2; continue ;;
+      *) echo "skipped: $target points outside the repo" >&2; continue ;;
     esac
     ln -sfn "${src%/}" "$target"
   elif [ -e "$target" ]; then
-    echo "pulado: $target existe e não é symlink" >&2
+    echo "skipped: $target exists and is not a symlink" >&2
     continue
   else
     ln -s "${src%/}" "$target"
@@ -26,9 +26,9 @@ for src in "$repo"/*/; do
   echo "ok: $name"
 done
 
-# Poda links quebrados. Em ~/.agents/skills, os que apontam para o repo.
-# Nas raízes dos harnesses, os que apontam para ~/.agents/skills (só quando
-# o destino é o padrão).
+# Prune broken links pointing to the repo in ~/.agents/skills. In agent skill
+# roots, prune links pointing to ~/.agents/skills only when using the default
+# destination.
 prune() {
   local root="$1"; shift
   local link target pat
@@ -38,7 +38,7 @@ prune() {
     target="$(readlink "$link")"
     for pat in "$@"; do
       case "$target" in
-        $pat) rm "$link"; echo "removido (quebrado): $link"; break ;;
+        $pat) rm "$link"; echo "removed (broken): $link"; break ;;
       esac
     done
   done

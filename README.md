@@ -1,44 +1,58 @@
 # skills
 
-Skills de agentes (Claude Code, OpenCode, Codex, Gemini, Cursor...) usadas
-nos meus projetos: escrita sem "cara de IA" em PT-BR, higiene de publicação
-(sem trailer/provenância de agente), fluxo grill → spec → tickets → PR, e
-diagramas de arquitetura.
+Agent skills for Claude Code, OpenCode, Codex, Gemini, Cursor, and other agents
+used in my projects. They cover writing in Brazilian Portuguese, publication
+hygiene, the grill → spec → tickets → PR workflow, and architecture diagrams.
 
-Cada pasta em `skills/` é autocontida (`SKILL.md` + arquivos de apoio).
+Each folder in `skills/` is self-contained (`SKILL.md` and supporting files).
 
-## Instalar
+## Language conventions
+
+Skill instructions, descriptions, internal prompts, supporting documentation,
+and code comments are in English. `unslop-br` stays entirely in Brazilian
+Portuguese because its rules and examples target PT-BR writing.
+
+Conversation follows the user's language. Generated prose follows the target
+project's language conventions. Portuguese trigger examples, quoted sources,
+proper names, and localization catalogs retain their original language.
+The Project Hub interface currently uses Portuguese; its labels are maintained
+separately from the skill instructions.
+
+## Install
 
 ```sh
-# skills.sh (instala em todos os agents configurados)
+# skills.sh (installs into all configured agents)
 npx skills add pedrosatin/skills
 
-# ou por symlink, a partir do clone (uma skill por link)
+# Or create symlinks from the clone (one link per skill)
 git clone https://github.com/pedrosatin/skills.git
 ./skills/link.sh
 ```
 
-O `link.sh` cria `~/.agents/skills/<nome>` apontando para cada pasta de
-`skills/`. Pastas reais e links que apontam para fora do repo ficam como
-estão, com aviso. O script é idempotente e apaga links quebrados que
-apontam para o repo ou para `~/.agents/skills`, inclusive nas raízes de
-Claude Code, Codex e Gemini. Rode de novo depois de cada `git pull`.
+`link.sh` creates `~/.agents/skills/<name>` pointing to each folder under
+`skills/`. It skips existing directories and links pointing outside the repo,
+with a warning. The script is idempotent and removes broken links pointing to
+the repo or `~/.agents/skills`, including those in the Claude Code, Codex, and
+Gemini skill roots. Run it again after each `git pull`.
 
-OpenCode lê `~/.agents/skills` nativamente. Claude Code, Codex e Gemini leem
-por symlink (`ln -s ../../.agents/skills/<nome> ~/.claude/skills/<nome>`).
+OpenCode reads `~/.agents/skills` directly. Claude Code, Codex, and Gemini read
+through symlinks (`ln -s ../../.agents/skills/<name> ~/.claude/skills/<name>`).
 
-## Conteúdo
+## Contents
 
-**Autorais** — `unslop-br` (anti-AI-slop PT-BR), `publication-hygiene`
-(valida commit/PR sem proveniência de agente antes do push), `babysit-prs`
-(revisar/mesclar PRs abertas), `pr-loop` (loop de entrega com subagents e
-code review), `validate-agent-config` (validação de entry points e paridade de skills),
-`setup` (inicialização de projeto, specs/tickets locais e Project Hub HTML),
-`board` (abre o Project Hub em `.scratch/index.html` e aponta o `/setup` quando
-a board ainda não existe).
+Original skills:
 
-**Vendored / Ferramentas** (ver `ATTRIBUTION.md`): `graphify` (grafo de
-conhecimento e navegação de codebase, Graphify-Labs, Apache-2.0), `archify` (diagramas de
-arquitetura em HTML/SVG interativo, tt-a1i), fluxo de planejamento do Matt
-Pocock (`grilling`, `to-spec`, `to-tickets`, `research`, `teach`)
-e `humanizer` (Siqi Chen).
+- `unslop-br`: removes AI writing patterns in PT-BR.
+- `publication-hygiene`: checks commits and PRs for agent provenance before publication.
+- `babysit-prs`: reviews and merges open PRs.
+- `pr-loop`: delivers backlog items with implementation, review, and corrections by subagents.
+- `validate-agent-config`: validates instruction entry points and skill configuration consistency.
+- `setup`: initializes local specs, tickets, and the HTML Project Hub.
+- `board`: opens `.scratch/index.html` and points to `/setup` when the board is missing.
+
+Vendored skills and tools (see `ATTRIBUTION.md`):
+
+- `graphify`: knowledge graphs and codebase navigation, from Graphify-Labs, Apache-2.0.
+- `archify`: interactive HTML/SVG architecture diagrams, from tt-a1i.
+- `grilling`, `to-spec`, `to-tickets`, `research`, `teach`: Matt Pocock's planning and learning workflow.
+- `humanizer`: prose editing, from Siqi Chen.

@@ -1,4 +1,4 @@
-# Domain docs: Single-context
+# Domain docs: single-context
 
 This repository follows a single-context domain documentation layout.
 
