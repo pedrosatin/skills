@@ -1,18 +1,18 @@
-# 02: Segundo ticket (bloqueado pelo 01)
+# 02: Second ticket (blocked by 01)
 
-**What to build:** Completar a fatia dependente depois que o ticket 01 estiver
-resolvido; no board da fixture deve aparecer como blocked.
+**What to build:** Complete the dependent slice after ticket 01 is resolved;
+it should appear as blocked on the fixture board.
 
 **Blocked by:** 01
 
 **Status:** ready-for-agent
 
-- [ ] Confirmar que o 01 está resolved antes de começar
-- [ ] Atualizar o hub após a mudança de status
-- [ ] Fechar este ticket com Comments
+- [ ] Confirm that 01 is resolved before starting
+- [ ] Refresh the hub after the status change
+- [ ] Close this ticket with Comments
 
 ## Comments
 
-- Dependência proposital: `Blocked by: 01` força a coluna blocked enquanto
-  o 01 permanece ready-for-agent.
-- Texto com lista, **ênfase** e trecho `inline` para o smoke de MD.
+- Intentional dependency: `Blocked by: 01` forces the blocked column while
+  01 remains ready-for-agent.
+- Text with a list, **emphasis**, and an `inline` fragment for the Markdown smoke check.

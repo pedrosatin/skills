@@ -100,7 +100,7 @@ function isUsableBrandHex(hex) {
   const C = hexChroma(n);
   // Near-white chrome
   if (L > 0.92) return false;
-  // Near-black/near-gray: L baixa só rejeita com croma baixa; marca escura com croma alta passa
+  // Near-black/near-gray: reject low luminance only with low chroma; allow dark saturated brands
   if (L < 0.08 && C < 0.12) return false;
   if (C < 0.12) return false;
   return true;
@@ -611,7 +611,7 @@ function isSafeHref(href) {
   const h = String(href || '').trim();
   if (!h) return false;
   if (h.startsWith('#')) return true;
-  // Protocol-relative (//evil.com) e esquemas não-http
+  // Protocol-relative (//evil.com) and non-HTTP schemes
   if (h.startsWith('//')) return false;
   // Relative path without a scheme (no ":")
   if (!h.includes(':')) return true;
@@ -1437,7 +1437,7 @@ const html = `<!DOCTYPE html>
     ` : ''}
   </main>
 
-  <!-- Side panel: detalhe do ticket / spec -->
+  <!-- Side panel: ticket / spec detail -->
   <div class="side-panel-overlay" id="panel-overlay" hidden></div>
   <aside
     class="side-panel"
@@ -1549,7 +1549,7 @@ const html = `<!DOCTYPE html>
         const col = t.computedColumn;
         counts[col]++;
 
-        // role=button (not <button>) to allow nested "Copiar prompt" button
+        // role=button (not <button>) to allow a nested copy-prompt button
         const card = document.createElement('div');
         card.className = 'ticket-card';
         card.setAttribute('role', 'button');
@@ -1650,7 +1650,7 @@ const html = `<!DOCTYPE html>
     }
 
     async function copyAgentPrompt(id, title, relPath) {
-      const prompt = \`Implemente o ticket \${id} (\${title}): leia os requisitos e critérios em \${relPath}, execute a implementação, valide os testes e marque o status do arquivo como resolved ao concluir.\`;
+      const prompt = \`Implement ticket \${id} (\${title}): read the requirements and acceptance criteria in \${relPath}, implement the change, validate the tests, and set the file status to resolved when complete. Follow the project's language conventions for generated prose.\`;
       const ok = await copyText(prompt);
       if (ok) {
         showToast('Prompt do agente copiado para a área de transferência!', false);

@@ -1,36 +1,36 @@
-# Demo Feature
+# Demo feature
 
 ## Problem Statement
 
-Operadores precisam de uma feature de demonstração com Markdown tipográfico
-para validar o Project Hub sem depender de um repositório real.
+Operators need a demonstration feature with formatted Markdown
+to validate the Project Hub without relying on a real repository.
 
 ## Solution
 
-Manter uma árvore mínima sob `fixtures/minimal-scratch` com spec e tickets
-que exercitam headings, listas, ênfase e bloqueios entre issues.
+Keep a minimal tree under `fixtures/minimal-scratch` with a spec and tickets
+that exercise headings, lists, emphasis, and issue dependencies.
 
-## Escopo
+## Scope
 
-1. Como operador, quero ver a spec renderizada com tipografia.
-2. Como operador, quero um ticket pronto e outro bloqueado no Kanban.
+1. As an operator, I want to see the spec rendered with document typography.
+2. As an operator, I want one ready ticket and one blocked ticket on the Kanban board.
 
-### Detalhes
+### Details
 
-- Texto com **negrito**, *itálico* e `código inline`
-- Lista numerada e com marcadores
-- Citação curta:
+- Text with **bold**, *italics*, and `inline code`
+- Numbered and bulleted lists
+- A short quotation:
 
-> Fixture local, sem CDN e sem clones externos.
+> Local fixture, with no CDN or external clones.
 
-### Checklist da spec
+### Spec checklist
 
-- [x] Headings e parágrafos
-- [ ] Exemplo opcional ainda aberto
+- [x] Headings and paragraphs
+- [ ] Optional example still open
 
 ---
 
-Código de exemplo:
+Example code:
 
 ```js
 console.log('fixture ok');

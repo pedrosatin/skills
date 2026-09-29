@@ -1,55 +1,55 @@
-# Contrato de design do Project Hub
+# Project Hub design contract
 
-Documento de referência para quem gera ou altera o dashboard em `.scratch/index.html` via skill `setup`. Alinha o hub à skill `frontend-ui-engineering` e evita regressão ao visual genérico de LLM.
+Reference document for anyone generating or changing the dashboard in `.scratch/index.html` through the `setup` skill. It aligns the hub with `frontend-ui-engineering` and prevents regression to generic LLM visuals.
 
-## Job da tela
+## Screen purpose
 
-O hub serve para três tarefas do operador:
+The hub supports three operator tasks:
 
-1. Escanear o board Kanban de tickets (status, blockers, progresso de critérios).
-2. Ler ticket, spec, regras do repositório e `GRAPH_REPORT` como documento tipográfico.
-3. Copiar o prompt de despacho de um ticket (card e painel de detalhe).
+1. Scan the ticket Kanban board for status, blockers, and acceptance criteria progress.
+2. Read tickets, specs, repository rules, and `GRAPH_REPORT` as formatted documents.
+3. Copy a ticket dispatch prompt from a card or detail panel.
 
-Qualquer mudança de layout ou chrome deve preservar essas três tarefas. Decoração sem função operacional fica fora do escopo.
+Any change to the layout or interface controls must preserve these tasks. Decoration with no operational purpose is outside the scope.
 
-## Artefato e regeneração
+## Artifact and regeneration
 
-- Saída single-file. Um único `.scratch/index.html` por repositório.
-- Offline. Sem CDN e sem fetch de CSS/JS/fontes externos em runtime.
-- Regeneração idempotente. Rodar `node scripts/generate-hub.mjs` (ou o path instalado em `~/.agents/skills/setup/scripts/generate-hub.mjs`) produz o mesmo contrato visual a partir dos Markdown em `.scratch/`.
-- Proibido editar `.scratch/index.html` à mão. Correção de bug ou melhoria visual entra no gerador da skill `setup`. Patch manual some na próxima regeneração (`/setup`, `/to-tickets`, ou invocação direta do script).
+- Single-file output. One `.scratch/index.html` per repository.
+- Offline. No CDN and no external CSS, JavaScript, or font fetches at runtime.
+- Idempotent regeneration. Running `node scripts/generate-hub.mjs`, or the installed path `~/.agents/skills/setup/scripts/generate-hub.mjs`, produces the same visual contract from the Markdown in `.scratch/`.
+- Do not edit `.scratch/index.html` by hand. Make bug fixes and visual improvements in the `setup` skill's generator. Manual patches disappear on the next regeneration through `/setup`, `/to-tickets`, or a direct script invocation.
 
-## Markdown como documento
+## Markdown as a document
 
-Ticket, spec, regras (AGENTS/CLAUDE/CONTEXT) e relatório do grafo usam Markdown tipográfico. Tipografia proporcional, hierarquia de headings, listas, ênfase, task lists e blocos de código distintos da prosa.
+Tickets, specs, rules (AGENTS/CLAUDE/CONTEXT), and graph reports use formatted Markdown. Use proportional typography, a heading hierarchy, lists, emphasis, task lists, and code blocks visually distinct from prose.
 
-O leitor principal rejeita dump do fonte escapado em `<pre>` (ou equivalente monoespaçado). `pre`/`code` ficam para fences e código inline.
+The main reader must not dump escaped source into `<pre>` or an equivalent monospaced view. Reserve `pre`/`code` for fenced blocks and inline code.
 
-Detalhe de implementação do parser e da classe de corpo MD fica em tickets posteriores. Este contrato fixa o comportamento observável.
+Parser implementation details and the Markdown body class belong in later tickets. This contract defines observable behavior.
 
-## Detalhe em side panel
+## Details in a side panel
 
-O detalhe de ticket e de spec abre em side panel à direita, com o board ainda visível em desktop. Em viewport estreita o panel ocupa a tela. Modal centrado com backdrop blur fica fora do padrão de detalhe.
+Ticket and spec details open in a side panel on the right, with the board still visible on desktop. On narrow viewports, the panel fills the screen. A centered modal with backdrop blur is outside the detail view convention.
 
-## Tokens (direção)
+## Token direction
 
-Família neutra zinc/slate para fundo, surface, borda e texto. Accent verde (`#22c55e`) por padrão para estados de sucesso/ready e CTA relevantes. Danger e warning semânticos quando houver estado de erro ou alerta.
+Use a neutral zinc/slate palette for backgrounds, surfaces, borders, and text. Use a green accent (`#22c55e`) by default for success/ready states and relevant calls to action. Use semantic danger and warning colors for error and alert states.
 
-Quando o repositório expõe cor de marca inferível (variáveis CSS como `--color-primary` / `--accent` / `--color-action`, `theme-color` / tile / mask-icon com croma útil, ou `primary` no Tailwind config), o gerador usa essa cor em `--accent` e `--success`, com `--accent-fg` escolhido por contraste. Neutros zinc permanecem. Sem sinal confiável, cai no verde padrão.
+When the repository exposes an identifiable brand color through CSS variables such as `--color-primary` / `--accent` / `--color-action`, `theme-color` / tile / mask-icon with useful chroma, or `primary` in Tailwind configuration, the generator uses it for `--accent` and `--success`. Choose `--accent-fg` by contrast. Keep the zinc neutrals. Without reliable evidence, use the default green.
 
-Detalhe de valores CSS e nomes de variáveis fica no gerador. A direção dos tokens é neutro operacional com accent de marca do projeto (ou verde padrão). Indigo/purple genérico de LLM não entra como default do hub.
+CSS values and variable names are defined in the generator. Tokens use operational neutrals with the project's brand accent or the default green. Generic LLM indigo/purple must not become the hub's default.
 
-## Anti-patterns rejeitados
+## Rejected patterns
 
-Vocabulário alinhado à skill `frontend-ui-engineering` (seção "Avoid the AI Aesthetic") e às decisões do hub:
+These terms align with the `frontend-ui-engineering` skill's "Avoid the AI Aesthetic" section and the hub's decisions:
 
-| Padrão rejeitado | Motivo |
+| Rejected pattern | Reason |
 |---|---|
-| Indigo/purple default (`#6366f1` e equivalentes) como primary de marca | Paleta "segura" de modelo. O hub deve parecer ferramenta operacional. |
-| Emoji nos labels de chrome (header, tabs, colunas, botões principais) | Rótulos instáveis e ruidosos para leitores de tela. Chrome usa texto puro. |
-| Lift (`translateY`) e sombra teatral no hover de cards | Feedback de board denso usa borda ou surface. |
-| Markdown cru em `<pre>` como leitor de ticket/spec/regras/report | Impede leitura tipográfica. Ver seção "Markdown como documento". |
-| CDN obrigatória (CSS/JS/fontes remotos) | O hub precisa abrir via `file://` offline. |
-| Rounded/pill excessivo como identidade visual | Cantos máximos e pills em massa sinalizam estética genérica de LLM. |
+| Default indigo/purple (`#6366f1` and equivalents) as the primary brand color | This is a model's predictable palette. The hub should look like an operational tool. |
+| Emoji in interface labels (header, tabs, columns, main buttons) | These labels are unstable and noisy for screen readers. Interface controls use plain text. |
+| Lift (`translateY`) and theatrical shadows on card hover | Feedback on a dense board uses a border or surface change. |
+| Raw Markdown in `<pre>` as the ticket/spec/rules/report reader | This prevents formatted reading. See "Markdown as a document". |
+| Required CDN (remote CSS/JavaScript/fonts) | The hub must open offline through `file://`. |
+| Excessive rounded corners or pills as the visual identity | Maximum rounding and widespread pills signal generic LLM aesthetics. |
 
-Melhorias futuras do gerador devem passar por este contrato. Se uma proposta reintroduz um padrão da tabela, ela é rejeitada até haver decisão explícita que atualize este documento e a seção correspondente em `SKILL.md`.
+Future generator improvements must follow this contract. A proposal that reintroduces a pattern from the table is rejected until an explicit decision updates this document and the corresponding section in `SKILL.md`.

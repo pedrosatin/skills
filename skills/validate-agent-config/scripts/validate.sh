@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# validate-agent-config: valida entry points de instruções, CONTEXT.md, skills e sync com o repo
-# Fonte da verdade do layout: ~/.agents/SKILLS.md e o cabeçalho de ~/.agents/CONTEXT.md
-# Convenções de invocação (user-invoked vs model-invoked): convenção mattpocock/skills .agents/invocation.md
+# validate-agent-config: validate instruction entry points, CONTEXT.md, skills, and repository sync
+# Layout source of truth: ~/.agents/SKILLS.md and the header of ~/.agents/CONTEXT.md
+# Invocation conventions (user-invoked vs model-invoked): mattpocock/skills .agents/invocation.md
 set -u
 HOME_DIR="${HOME:?}"
 CONTEXT="$HOME_DIR/.agents/CONTEXT.md"
@@ -18,16 +18,16 @@ fi
 
 errors=0; warnings=0; checks=0
 
-err()  { checks=$((checks+1)); errors=$((errors+1));   echo "ERRO:  $*"; }
-warn() { checks=$((checks+1)); warnings=$((warnings+1)); echo "AVISO: $*"; }
+err()  { checks=$((checks+1)); errors=$((errors+1));   echo "ERROR:  $*"; }
+warn() { checks=$((checks+1)); warnings=$((warnings+1)); echo "WARNING: $*"; }
 ok()   { checks=$((checks+1)); }
 
 resolve() { readlink -f "$1" 2>/dev/null; }
 skill_exists() { [ -e "$AGENTS_SKILLS/$1" ] || [ -e "$CLAUDE_SKILLS/$1" ]; }
 
-# ---------- 1. entry points de instruções ----------
-echo "== 1. Entry points de instruções"
-[ -f "$CONTEXT" ] || { echo "ERRO:  falta $CONTEXT"; exit 1; }
+# ---------- 1. instruction entry points ----------
+echo "== 1. Instruction entry points"
+[ -f "$CONTEXT" ] || { echo "ERROR:  missing $CONTEXT"; exit 1; }
 
 for f in "$HOME_DIR/AGENTS.md" \
          "$HOME_DIR/.config/opencode/AGENTS.md" \
@@ -36,13 +36,13 @@ for f in "$HOME_DIR/AGENTS.md" \
          "$HOME_DIR/.grok/AGENTS.md"; do
   if [ -L "$f" ] && [ -e "$f" ]; then
     if [ "$(resolve "$f")" = "$CONTEXT" ]; then ok
-    else err "$(basename "$(dirname "$f")")/$(basename "$f") resolvem para $(resolve "$f"), esperado $CONTEXT"; fi
-  elif [ -e "$f" ]; then warn "$f existe mas NÃO é symlink (deveria apontar para o CONTEXT.md)"
-  else err "$f não existe"; fi
+    else err "$(basename "$(dirname "$f")")/$(basename "$f") resolves to $(resolve "$f"), expected $CONTEXT"; fi
+  elif [ -e "$f" ]; then warn "$f exists but is NOT a symlink (should point to CONTEXT.md)"
+  else err "$f does not exist"; fi
 done
 
 for f in "$HOME_DIR/.claude/CLAUDE.md" "$HOME_DIR/.claude-w/CLAUDE.md" "$HOME_DIR/.claude-p/CLAUDE.md"; do
-  if [ ! -f "$f" ] || [ -L "$f" ]; then err "$f deveria ser arquivo REAL com @import (está ausente ou é symlink)"; continue; fi
+  if [ ! -f "$f" ] || [ -L "$f" ]; then err "$f should be a REAL file with @import (missing or a symlink)"; continue; fi
   ok
   while IFS= read -r ref; do
     [ -n "$ref" ] || continue
@@ -51,45 +51,45 @@ for f in "$HOME_DIR/.claude/CLAUDE.md" "$HOME_DIR/.claude-w/CLAUDE.md" "$HOME_DI
       "/"*)  target="$ref" ;;
       *)     target="$(dirname "$f")/$ref" ;;
     esac
-    if [ -e "$target" ]; then ok; else err "import @$ref em $f não resolve ($target)"; fi
+    if [ -e "$target" ]; then ok; else err "import @$ref in $f does not resolve ($target)"; fi
   done < <(grep -E '^@' "$f" | sed 's/^@//' | sed 's/\r$//')
 done
 
 CI="$HOME_DIR/.copilot/copilot-instructions.md"
 if [ -f "$CI" ]; then
-  grep -q "context-global-pointer" "$CI" && ok || warn "$CI sem o bloco context-global-pointer (Copilot perde as regras globais em projetos)"
-else err "$CI não existe"; fi
+  grep -q "context-global-pointer" "$CI" && ok || warn "$CI missing the context-global-pointer block (Copilot misses global rules in projects)"
+else err "$CI does not exist"; fi
 
-# ---------- 2. higiene do CONTEXT.md ----------
-echo "== 2. Paths e binários citados no CONTEXT.md"
+# ---------- 2. CONTEXT.md hygiene ----------
+echo "== 2. Paths and binaries referenced in CONTEXT.md"
 while IFS= read -r p; do
   [ -n "$p" ] || continue
-  [ -e "$HOME_DIR${p#\~}" ] || warn "path citado no CONTEXT.md não existe: $p"
+  [ -e "$HOME_DIR${p#\~}" ] || warn "path referenced in CONTEXT.md does not exist: $p"
 done < <(grep -oE '~(/[a-zA-Z0-9._/-]+)' "$CONTEXT" | sort -u)
 
 while IFS= read -r p; do
   [ -n "$p" ] || continue
-  [ -e "$HOME_DIR${p#\~}" ] || err "skill citada no CONTEXT.md não existe: $p"
+  [ -e "$HOME_DIR${p#\~}" ] || err "skill referenced in CONTEXT.md does not exist: $p"
 done < <(grep -oE '~/\.?[a-zA-Z0-9._/-]*skills/[a-zA-Z0-9._-]+/SKILL\.md' "$CONTEXT" | sort -u)
 
 while IFS= read -r b; do
   [ -n "$b" ] || continue
-  command -v "$b" >/dev/null 2>&1 || warn "binário citado no CONTEXT.md não está no PATH: $b"
+  command -v "$b" >/dev/null 2>&1 || warn "binary referenced in CONTEXT.md is not on PATH: $b"
 done < <(grep -oE '\b[a-z]+(-[a-z]+)*-axi\b|\brtk\b' "$CONTEXT" | sort -u)
 
-# ---------- 3. skills: estrutura ----------
-echo "== 3. Skills (estrutura)"
+# ---------- 3. skills: structure ----------
+echo "== 3. Skills (structure)"
 for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
-  [ -d "$root" ] || { err "raiz de skills ausente: $root"; continue; }
+  [ -d "$root" ] || { err "missing skill root: $root"; continue; }
   for e in "$root"/*; do
     name="$(basename "$e")"
     [ "$name" = "synced" ] && continue
     if [ -L "$e" ]; then
-      if [ -e "$e" ]; then ok; else err "symlink quebrado: $e -> $(readlink "$e")"; fi
+      if [ -e "$e" ]; then ok; else err "broken symlink: $e -> $(readlink "$e")"; fi
       continue
     fi
     [ -d "$e" ] || continue
-    if [ ! -f "$e/SKILL.md" ]; then err "$name ($root): diretório sem SKILL.md"; continue; fi
+    if [ ! -f "$e/SKILL.md" ]; then err "$name ($root): directory without SKILL.md"; continue; fi
     ok
   done
 done
@@ -99,7 +99,7 @@ for e in "$AGENTS_SKILLS"/*; do
   [ -d "$e" ] && [ ! -L "$e" ] || continue
   c="$CLAUDE_SKILLS/$name"
   if [ -d "$c" ] && [ ! -L "$c" ]; then
-    case "$name" in ai-memory-*) ok ;; *) err "$name é diretório REAL nas duas raízes (drift); uma deve ser symlink" ;; esac
+    case "$name" in ai-memory-*) ok ;; *) err "$name is a REAL directory in both roots (drift); one must be a symlink" ;; esac
   fi
 done
 
@@ -107,11 +107,11 @@ for e in "$CLAUDE_SKILLS"/*; do
   name="$(basename "$e")"
   [ -d "$e" ] && [ ! -L "$e" ] || continue
   case "$name" in ai-memory-*|synced) continue ;; esac
-  [ -e "$AGENTS_SKILLS/$name" ] || warn "$name é diretório real apenas em ~/.claude/skills; considere mover para ~/.agents/skills"
+  [ -e "$AGENTS_SKILLS/$name" ] || warn "$name is a real directory only in ~/.claude/skills; consider moving it to ~/.agents/skills"
 done
 
-# ---------- 4. skills: lint de SKILL.md (convenções) ----------
-echo "== 4. Skills (lint de conteúdo)"
+# ---------- 4. skills: SKILL.md lint (conventions) ----------
+echo "== 4. Skills (content lint)"
 for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
   for e in "$root"/*; do
     [ -L "$e" ] && continue
@@ -120,15 +120,15 @@ for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
     real="$e"
     sk="$real/SKILL.md"
 
-    # 4.1 ID: kebab-case, <=64 (padrão portável; OpenCode recomenda)
+    # 4.1 ID: kebab-case, <=64 (portable standard; recommended by OpenCode)
     if ! printf '%s' "$name" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$'; then
-      warn "ID fora do kebab-case: $name"
+      warn "ID is not kebab-case: $name"
     else ok; fi
-    [ "${#name}" -le 64 ] || warn "ID com mais de 64 chars: $name"
+    [ "${#name}" -le 64 ] || warn "ID exceeds 64 characters: $name"
 
-    # 4.2 campos do frontmatter e paridade de name com o diretório
-    head -c 2000 "$sk" | grep -q '^description:' || warn "$name: frontmatter sem description (skill não é anunciada ao modelo)"
-    head -c 2000 "$sk" | grep -q '^name:' || warn "$name: frontmatter sem name"
+    # 4.2 frontmatter fields and name matching the directory
+    head -c 2000 "$sk" | grep -q '^description:' || warn "$name: frontmatter missing description (skill is not advertised to the model)"
+    head -c 2000 "$sk" | grep -q '^name:' || warn "$name: frontmatter missing name"
     fm_name="$(awk '
       BEGIN { in_fm=0 }
       /^---[[:space:]]*$/ {
@@ -147,10 +147,10 @@ for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
     if [ "$fm_name" = "$name" ]; then
       ok
     else
-      err "$name: campo name diverge do diretório (name: '$fm_name')"
+      err "$name: name field differs from the directory (name: '$fm_name')"
     fi
 
-    # extrai bloco completo de description (inclui blocos multilinha com | ou >)
+    # extract the complete description block (including multiline blocks with | or >)
     desc="$(awk '
       BEGIN { in_fm=0; in_desc=0 }
       /^---[[:space:]]*$/ {
@@ -172,102 +172,102 @@ for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
         if (length($0) > 0) print
       }
     ' "$sk")"
-    [ "${#desc}" -le 1024 ] || warn "$name: description com ${#desc} chars (aumenta o consumo de tokens na janela de contexto de toda sessão)"
+    [ "${#desc}" -le 1024 ] || warn "$name: description has ${#desc} characters (increases context token use in every session)"
 
-    # 4.3 paridade de invocação e verificação de gatilhos
+    # 4.3 invocation parity and trigger checks
     dmi="$(grep -c '^disable-model-invocation: *true' "$sk")"
     if [ -f "$real/agents/openai.yaml" ]; then
       pol="$(grep -c 'allow_implicit_invocation: *false' "$real/agents/openai.yaml")"
       if [ "$dmi" -gt 0 ] && [ "$pol" -eq 0 ]; then
-        warn "$name: user-invoked no SKILL.md mas agents/openai.yaml sem allow_implicit_invocation: false"
+        warn "$name: user-invoked in SKILL.md but agents/openai.yaml lacks allow_implicit_invocation: false"
       elif [ "$dmi" -eq 0 ] && [ "$pol" -gt 0 ]; then
-        warn "$name: user-invoked no openai.yaml mas SKILL.md sem disable-model-invocation: true"
+        warn "$name: user-invoked in openai.yaml but SKILL.md lacks disable-model-invocation: true"
       else
         ok
       fi
     fi
     if [ "$dmi" -gt 0 ]; then
-      # description de user-invoked não precisa de frases de trigger (face humana, não de modelo)
+      # user-invoked descriptions do not need trigger phrases (intended for the operator)
       if printf '%s' "$desc" | grep -qiE 'use when|use ao |aplique ao'; then
-        warn "$name: user-invoked com description de modelo (frases de trigger); para user-invoked a descrição destina-se ao operador"
+        warn "$name: user-invoked with a model-facing description (trigger phrases); user-invoked descriptions are intended for the operator"
       fi
     else
-      # skill model-invoked requer condições de acionamento claras na descrição
+      # model-invoked skills require clear activation conditions in the description
       if printf '%s\n' "$desc" | grep -qiE 'use when|quando|use ao|aplique ao'; then
         ok
       else
-        warn "$name: skill model-invoked requer condições de acionamento claras na descrição (termos: use when, quando, use ao, aplique ao)"
+        warn "$name: model-invoked skills require clear activation conditions in the description (terms: use when, quando, use ao, aplique ao)"
       fi
     fi
 
-    # 4.4 alerta de sprawl e carga de contexto
+    # 4.4 sprawl warning and context load
     lines="$(wc -l < "$sk")"
     if [ "$lines" -gt 350 ] && [ ! -d "$real/references" ] && [ ! -d "$real/scripts" ]; then
-      warn "$name: SKILL.md com $lines linhas sem references/ ou scripts/ (recomenda-se mover blocos extensos para references/)"
+      warn "$name: SKILL.md has $lines lines without references/ or scripts/ (move long sections to references/)"
     else
       ok
     fi
 
-    # 4.5 refs relativas do corpo resolvem (a skill deve ser autocontida)
+    # 4.5 relative references in the body resolve (the skill should be self-contained)
     while IFS= read -r ref; do
       [ -n "$ref" ] || continue
-      [ -e "$real/$ref" ] || warn "$name: ref interna não existe: $ref"
+      [ -e "$real/$ref" ] || warn "$name: internal reference does not exist: $ref"
     done < <(grep -oE '\]\((references|scripts|assets|agents)/[a-zA-Z0-9._/-]+\)' "$sk" | sed -E 's/^\]\(//; s/\)$//' | sort -u;
              grep -oE '`(references|scripts|assets|agents)/[a-zA-Z0-9._/-]+`' "$sk" | tr -d '`' | sort -u)
 
-    # 4.6 dependências cross-skill nomeiam skills existentes
+    # 4.6 cross-skill dependencies name existing skills
     while IFS= read -r dep; do
       [ -n "$dep" ] || continue
-      if skill_exists "$dep"; then ok; else err "$name: chama a skill \"$dep\" que não existe"; fi
+      if skill_exists "$dep"; then ok; else err "$name: calls skill \"$dep\" which does not exist"; fi
     done < <(grep -oE 'skill: *"([a-z0-9-]+)"' "$sk" | sed -E 's/skill: *"//; s/"//' | sort -u;
              grep -oE 'Skill tool with "([a-z0-9-]+)"' "$sk" | sed -E 's/.*with "//; s/"//' | sort -u)
   done
 done
 
-# ---------- 5. probes vivos ----------
-echo "== 5. Probes vivos"
+# ---------- 5. live probes ----------
+echo "== 5. Live probes"
 if command -v copilot >/dev/null 2>&1; then
   cout="$(cd "$HOME_DIR" && timeout -k 2s 5s copilot instruction list </dev/null 2>&1 || true)"
   if printf '%s' "$cout" | grep -q "AGENTS.md"; then ok
-  else warn "copilot instruction list (na home) não lista o ~/AGENTS.md; a regra global não será carregada"; fi
-else warn "copilot não instalado; probe pulado"; fi
-if command -v agent >/dev/null 2>&1; then ok; else warn "cursor CLI (agent) não instalado"; fi
-if command -v opencode >/dev/null 2>&1; then ok; else warn "opencode não instalado"; fi
+  else warn "copilot instruction list (in the home directory) does not list ~/AGENTS.md; the global rule will not load"; fi
+else warn "copilot is not installed; probe skipped"; fi
+if command -v agent >/dev/null 2>&1; then ok; else warn "Cursor CLI (agent) is not installed"; fi
+if command -v opencode >/dev/null 2>&1; then ok; else warn "opencode is not installed"; fi
 
-# ---------- 6. sync com o repo versionado ----------
-echo "== 6. Sync repo ($REPO)"
+# ---------- 6. sync with the versioned repository ----------
+echo "== 6. Repository sync ($REPO)"
 if [ -d "$REPO/skills" ]; then
-  [ -f "$REPO/ATTRIBUTION.md" ] && ok || err "repo sem ATTRIBUTION.md"
-  [ -f "$REPO/LICENSE" ] && ok || err "repo sem LICENSE"
+  [ -f "$REPO/ATTRIBUTION.md" ] && ok || err "repository missing ATTRIBUTION.md"
+  [ -f "$REPO/LICENSE" ] && ok || err "repository missing LICENSE"
   for d in "$REPO"/skills/*/; do
     [ -d "$d" ] || continue
     name="$(basename "$d")"
-    # 6.1 toda skill do repo tem linha de atribuição
-    grep -qE "(^|[^a-z0-9-])$name([^a-z0-9-]|$)" "$REPO/ATTRIBUTION.md" || warn "$name: sem entrada no ATTRIBUTION.md"
-    # 6.2 se instalada, conteúdo igual ao repo
+    # 6.1 every repository skill has an attribution entry
+    grep -qE "(^|[^a-z0-9-])$name([^a-z0-9-]|$)" "$REPO/ATTRIBUTION.md" || warn "$name: missing entry in ATTRIBUTION.md"
+    # 6.2 if installed, contents match the repository
     inst="$AGENTS_SKILLS/$name"
     if [ -d "$inst" ] && [ ! -L "$inst" ]; then
-      if diff -rq "$d" "$inst" >/dev/null 2>&1; then ok; else warn "$name: repo e ~/.agents/skills divergem (edite no repo e copie)"; fi
+      if diff -rq "$d" "$inst" >/dev/null 2>&1; then ok; else warn "$name: repository and ~/.agents/skills differ (edit in the repository and copy)"; fi
     fi
   done
-  # 6.3 skill autoral instalada fora do repo (exceto privadas conhecidas)
+  # 6.3 locally authored skill installed outside the repository (except known private skills)
   for e in "$AGENTS_SKILLS"/*; do
     name="$(basename "$e")"
     [ -d "$e" ] || continue
     case "$name" in
       ai-memory-*|sia-*|unslop|find-skills|graphify|omarchy|diagnose-crash|weekly-*|escreva-como-eu|error-to-detailed-issue) continue ;;
     esac
-    [ -d "$REPO/skills/$name" ] || warn "$name: autoral instalada mas sem versão no repo"
+    [ -d "$REPO/skills/$name" ] || warn "$name: locally authored and installed but missing from the repository"
   done
 else
-  warn "repo $REPO não encontrado; sync pulado"
+  warn "repository $REPO not found; sync skipped"
 fi
 
-# ---------- resultado ----------
+# ---------- result ----------
 echo
-if   [ "$errors" -gt 0 ]; then status="COM ERROS"
-elif [ "$warnings" -gt 0 ]; then status="LIMPO COM AVISOS"
+if   [ "$errors" -gt 0 ]; then status="WITH ERRORS"
+elif [ "$warnings" -gt 0 ]; then status="CLEAN WITH WARNINGS"
 else status="CLEAN"; fi
-echo "Resultado: $status ($checks checks, $errors erro(s), $warnings aviso(s))"
+echo "Result: $status ($checks checks, $errors error(s), $warnings warning(s))"
 [ "$errors" -eq 0 ] || exit 1
 exit 0
