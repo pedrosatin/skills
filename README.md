@@ -27,7 +27,9 @@ OpenCode lê `~/.agents/skills` nativamente; Claude Code via symlink
 (valida commit/PR sem proveniência de agente antes do push), `babysit-prs`
 (revisar/mesclar PRs abertas), `pr-loop` (loop de entrega com subagents e
 code review), `validate-agent-config` (validação de entry points e paridade de skills),
-`setup` (inicialização de projeto, specs/tickets locais e Project Hub HTML).
+`setup` (inicialização de projeto, specs/tickets locais e Project Hub HTML),
+`board` (abre o Project Hub em `.scratch/index.html` e aponta o `/setup` quando
+a board ainda não existe).
 
 **Vendored / Ferramentas** (ver `ATTRIBUTION.md`): `graphify` (grafo de
 conhecimento e navegação de codebase, Graphify-Labs, Apache-2.0), `archify` (diagramas de
