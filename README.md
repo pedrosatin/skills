@@ -34,8 +34,5 @@ a board ainda não existe).
 **Vendored / Ferramentas** (ver `ATTRIBUTION.md`): `graphify` (grafo de
 conhecimento e navegação de codebase, Graphify-Labs, Apache-2.0), `archify` (diagramas de
 arquitetura em HTML/SVG interativo, tt-a1i), fluxo de planejamento do Matt
-Pocock (`grill-me`, `grilling`, `to-spec`, `to-tickets`, `research`,
-`teach`), engenharia do Addy Osmani (`spec-driven-development`,
-`code-review-and-quality`, `documentation-and-adrs`,
-`frontend-ui-engineering`, `code-simplification`, `interview-me`,
-`browser-testing-with-devtools`) e `humanizer` (Siqi Chen).
+Pocock (`grilling`, `to-spec`, `to-tickets`, `research`, `teach`)
+e `humanizer` (Siqi Chen).
