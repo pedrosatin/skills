@@ -9,13 +9,13 @@ Work the tree in **rounds**. The **frontier** is every decision whose prerequisi
 
 ## Ask through the harness question UI
 
-Put the round's questions to the user through the harness's structured question interface, so they answer by picking options instead of typing a prose reply. Do not post the frontier as a numbered list in the chat and wait for text.
+Put the round's questions to the user through the harness's structured question interface, so they answer by picking options instead of typing a prose reply. When the harness exposes a question tool, do not post the frontier as a numbered list in the chat and wait for text.
 
 The control has a different name in each harness:
 
 | Harness | Tool | Shape |
 | --- | --- | --- |
-| Claude Code | `AskUserQuestion` | up to 4 questions per call, 2–4 options each, header ≤ 12 chars, optional multi-select; an "Other" free-text choice is always added |
+| Claude Code | `AskUserQuestion` | up to 4 questions per call, 2 to 4 options each, header ≤ 12 chars, optional multi-select; an "Other" free-text choice is always added |
 | OpenCode | `question` | a list of questions, each with a header, the question text, and options; the user moves between them and can type a custom answer |
 | Codex CLI | `request_user_input` | option-based question prompt (Plan mode) |
 | Gemini CLI | `ask_user` | one or more questions, from yes/no to multiple choice to open-ended |
@@ -25,12 +25,14 @@ Use whichever one the current harness exposes. Check your tool list for the righ
 
 Build each question like this:
 
-- **header** — one to four words naming the decision.
-- **question** — the decision and the trade-offs that make the options meaningful. Put longer context in the message that carries the call.
-- **options** — the real branches, two to four of them, each with a one-line description of what choosing it commits to. List your recommended answer **first** and mark it `(Recommended)`.
-- **multi-select** — only when more than one branch can hold at the same time.
+| Field | What goes in it |
+| --- | --- |
+| `header` | One to four words naming the decision, short enough for the harness limit (12 characters on Claude Code). |
+| `question` | The decision and the trade-offs that make the options meaningful. Put longer context in the message that carries the call. |
+| `options` | The real branches, two to four of them, each with a one-line description of what choosing it commits to. List your recommended answer first and mark it `(Recommended)`. |
+| `multi-select` | Only when more than one branch can hold at the same time. |
 
-If the harness limits how many questions one call takes (Claude Code allows four), split the round across several calls. Gather the whole round before asking the next one.
+If the harness limits how many questions one call takes (Claude Code allows four), split the round across several calls. Collect the answers to the whole round before asking the next.
 
 If the harness has no question tool, or the user turned it off, fall back to prose: number each question and state your recommended answer under it.
 

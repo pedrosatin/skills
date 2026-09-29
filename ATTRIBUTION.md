@@ -14,7 +14,7 @@ atualize o commit abaixo.
 | humanizer | [blader/humanizer](https://skills.sh/blader/humanizer) (ver `skills/humanizer/LICENSE`) | instalação via skills.sh | MIT © 2025 Siqi Chen |
 
 Exceção local: `grilling` foi adaptado para perguntar pela ferramenta de
-Q&A nativa de cada harness em vez de só despejar texto no chat. Ao
+Q&A nativa de cada harness em vez de esperar a resposta em prosa. Ao
 ressincronizar com o upstream, reaplique a seção "Ask through the harness
 question UI".
 
