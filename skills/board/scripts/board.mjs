@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// board — verifica e abre a board do projeto (Project Hub em .scratch/index.html).
+// board: verifica e abre a board do projeto (Project Hub em .scratch/index.html).
 //
 // Uso:
 //   node scripts/board.mjs [--root <dir>] [--print] [--json]
@@ -21,7 +21,7 @@ Verifica se .scratch/index.html existe e abre a board no navegador padrão.
 Opções:
   --root <dir>   raiz do projeto (default: sobe do cwd até achar .scratch/ ou o root do git)
   --print, -p    resolve e imprime o caminho/URL, sem abrir o navegador
-  --json         imprime JSON com o resultado ({found, root, scratch, path, url, ...})
+  --json         imprime JSON com o resultado ({found, root, scratch, path, url, opened|guidance|openError})
   --help, -h     mostra esta ajuda`;
 
 class UsageError extends Error {}
@@ -32,11 +32,15 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === '--root') {
       const value = argv[i + 1];
-      if (!value) throw new UsageError('--root exige um diretório');
+      // Rejeita ausência de valor e o caso em que a próxima flag foi consumida
+      // como valor (`--root --print` vira root "--print").
+      if (!value || value.startsWith('-')) throw new UsageError('--root exige um diretório');
       opts.root = value;
       i += 1;
     } else if (arg.startsWith('--root=')) {
-      opts.root = arg.slice('--root='.length);
+      const value = arg.slice('--root='.length);
+      if (!value) throw new UsageError('--root exige um diretório');
+      opts.root = value;
     } else if (arg === '--print' || arg === '-p') {
       opts.print = true;
     } else if (arg === '--json') {
@@ -53,6 +57,15 @@ function parseArgs(argv) {
 function isDirectory(target) {
   try {
     return fs.statSync(target).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// Um diretório chamado index.html não é board: só arquivo regular conta.
+function isFile(target) {
+  try {
+    return fs.statSync(target).isFile();
   } catch {
     return false;
   }
@@ -79,27 +92,55 @@ function locate(start) {
   }
 }
 
+// Abre o alvo no navegador padrão. O argumento varia por plataforma. No Windows
+// o comando é constante e o alvo viaja só por variável de ambiente do processo
+// filho, para nunca interpolar caminho no source do PowerShell.
 function openTarget(target) {
   const platform = process.platform;
   let command;
   let args;
+  let timeout;
   if (platform === 'darwin') {
     command = 'open';
     args = [target];
+    timeout = 5000;
   } else if (platform === 'win32') {
-    command = 'cmd';
-    args = ['/c', 'start', '', target];
+    command = 'powershell.exe';
+    args = ['-NoProfile', '-NonInteractive', '-Command', 'Start-Process -FilePath $env:BOARD_OPEN_TARGET'];
+    timeout = 15000;
   } else {
     command = 'xdg-open';
     args = [target];
+    timeout = 5000;
   }
-  const result = spawnSync(command, args, { stdio: 'ignore', timeout: 5000 });
+
+  const spawnOptions = {
+    encoding: 'utf8',
+    shell: false,
+    stdio: 'ignore',
+    timeout,
+    windowsHide: true,
+  };
+  if (platform === 'win32') {
+    spawnOptions.env = { ...process.env, BOARD_OPEN_TARGET: target };
+  }
+
+  let result;
+  try {
+    result = spawnSync(command, args, spawnOptions);
+  } catch (error) {
+    result = { error };
+  }
+
   if (result.error) {
     const reason =
       result.error.code === 'ENOENT'
         ? `${command} não encontrado no PATH`
         : result.error.message;
     return { ok: false, reason };
+  }
+  if (result.signal) {
+    return { ok: false, reason: `${command} terminado por ${result.signal}` };
   }
   if (result.status !== 0) {
     return { ok: false, reason: `${command} saiu com código ${result.status}` };
@@ -117,7 +158,7 @@ function guidance({ hasScratch, indexPath }) {
     lines.push('Rode /setup para criar .scratch/, os docs e o .scratch/index.html.');
   }
   lines.push('Depois use /to-spec e /to-tickets para popular a board com spec e tickets.');
-  lines.push('A board nasce vazia; spec e tickets preenchem as colunas.');
+  lines.push('A board começa sem cards; spec e tickets adicionam os cards.');
   return lines;
 }
 
@@ -141,7 +182,7 @@ function main() {
 
   const { root, scratch, found: hasScratch } = locate(opts.root || process.cwd());
   const indexPath = path.join(scratch, 'index.html');
-  const exists = hasScratch && fs.existsSync(indexPath);
+  const exists = hasScratch && isFile(indexPath);
 
   if (!exists) {
     const lines = guidance({ hasScratch, indexPath });
@@ -150,7 +191,7 @@ function main() {
         JSON.stringify({ found: false, root, scratch, path: null, url: null, guidance: lines }, null, 2),
       );
     } else {
-      console.log(`✗ Board não encontrada em ${root}\n`);
+      console.log(`Board não encontrada em ${root}\n`);
       for (const line of lines) console.log(`  ${line}`);
     }
     return 1;
@@ -185,7 +226,7 @@ function main() {
     return 0;
   }
 
-  console.log(`✓ Board: ${display}`);
+  console.log(`Board: ${display}`);
   console.log(`  ${url}`);
   if (opts.print) return 0;
   if (opened.ok) {
