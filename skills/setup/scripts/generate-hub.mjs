@@ -941,8 +941,11 @@ const html = `<!DOCTYPE html>
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 300px));
       gap: 1rem;
-      align-items: start;
+      align-items: stretch;
       justify-content: start;
+      /* Fixed height: the page keeps a single viewport, each column scrolls on its own. */
+      height: max(26rem, calc(100dvh - 14rem));
+      grid-auto-rows: 100%;
     }
     .kanban-col {
       background: var(--surface);
@@ -955,8 +958,23 @@ const html = `<!DOCTYPE html>
       width: 100%;
       max-width: 300px;
       min-height: 0;
+      overflow: hidden;
+    }
+    .col-cards {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-right: -0.5rem;
+      padding-right: 0.5rem;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: var(--surface-border) transparent;
     }
     .col-header {
+      flex-shrink: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
