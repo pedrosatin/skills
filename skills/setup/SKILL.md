@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "Initialize a project for local specs, tickets, knowledge graph, and architecture. Scaffolds .scratch/ issue tracking, domain docs, updates AGENTS.md, checks graphify, and generates the interactive HTML Project Hub dashboard."
+description: "Initialize a project for local specs and tickets: scaffolds .scratch/, domain docs, and AGENTS.md, checks graphify, and generates the HTML Project Hub."
 disable-model-invocation: true
 ---
 
