@@ -939,10 +939,14 @@ const html = `<!DOCTYPE html>
     /* Kanban Grid */
     .kanban-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 300px));
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(260px, 1fr);
       gap: 1rem;
-      align-items: start;
+      align-items: stretch;
       justify-content: start;
+      overflow-x: auto;
+      /* Fixed height so each column scrolls internally instead of growing the page. */
+      height: max(26rem, calc(100dvh - 14rem));
     }
     .kanban-col {
       background: var(--surface);
@@ -956,7 +960,22 @@ const html = `<!DOCTYPE html>
       max-width: 300px;
       min-height: 0;
     }
+    .col-cards {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      /* Padding leaves room for the card focus ring, which overflow would clip. */
+      margin: -4px -0.5rem -4px -4px;
+      padding: 4px 0.5rem 4px 4px;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: var(--surface-border) transparent;
+    }
     .col-header {
+      flex-shrink: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -1141,6 +1160,15 @@ const html = `<!DOCTYPE html>
       flex-shrink: 0;
     }
     @media (max-width: 768px) {
+      .kanban-grid {
+        grid-auto-flow: row;
+        grid-auto-columns: auto;
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow-x: visible;
+      }
+      .kanban-col { max-width: none; }
+      .col-cards { overflow-y: visible; overscroll-behavior: auto; }
       .side-panel {
         width: 100vw;
         max-width: 100vw;
