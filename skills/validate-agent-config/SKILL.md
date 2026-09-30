@@ -1,6 +1,6 @@
 ---
 name: validate-agent-config
-description: "Validate the machine's agent configuration: instruction entry points (CONTEXT.md, AGENTS.md, CLAUDE.md, GEMINI.md), symlinks, @ imports, paths cited in Markdown, skill frontmatter (name/description, directory matching and activation triggers), sprawl warnings, live probes, and referenced RTK/AXI binaries. Use when asked to validate, audit, lint, or check the health of skills, rules, CONTEXT.md, or integration across harnesses."
+description: "Validate the machine's agent configuration: instruction files (CONTEXT.md, AGENTS.md, CLAUDE.md, GEMINI.md), symlinks, @ imports, skill frontmatter, and referenced binaries. Use when asked to validate, audit, or check the health of skills, rules, or harness integration."
 ---
 
 # Validate agent configuration

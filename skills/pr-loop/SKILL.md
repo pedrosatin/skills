@@ -1,6 +1,6 @@
 ---
 name: pr-loop
-description: "Deliver backlog items with subagents: one implements in a worktree, a second reviews code and prose, a third applies corrections, and the main agent publishes the PR and merges with authorization before moving on. Use when explicitly requested through '/pr-loop', 'run the delivery loop', 'full workflow with subagents', 'roda o loop de entrega', 'fluxo completo com subagents', or 'trabalha a lista do roadmap com review e correção'. Do not invoke for a standalone PR or implementation request that does not ask for this loop and merge workflow."
+description: "Deliver backlog items one by one with subagents (implement, review, correct), then open the PR and merge with authorization. Use only when asked via '/pr-loop', 'run the delivery loop', 'roda o loop de entrega', 'fluxo completo com subagents', or 'trabalha a lista do roadmap com review e correção'. Not for a standalone PR or implementation request."
 ---
 
 # pr-loop

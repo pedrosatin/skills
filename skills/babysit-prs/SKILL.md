@@ -1,6 +1,6 @@
 ---
 name: babysit-prs
-description: "COMMAND-ONLY skill: run ONLY when the user explicitly types /babysit-prs. Reviews all open PRs in the current repo, merges safe ones, leaves draft+comment on risky ones. Do NOT load this skill contextually for PR review requests without the /babysit-prs command — a plain 'review these PRs' ask means review and report only, with no merges."
+description: "Command-only: run only when the user types /babysit-prs. Reviews open PRs in the current repo, merges safe ones, and drafts and comments on risky ones. A plain 'review these PRs' request means review and report only, with no merges."
 trigger: /babysit-prs
 disable-model-invocation: true
 ---
