@@ -192,22 +192,81 @@ function throwAtomicOutputFailure(result, output) {
   }]);
 }
 
+function nextRenderCandidatePath(outputPath) {
+  renderCandidateSequence += 1;
+  return path.join(
+    path.dirname(outputPath),
+    `.archify-render-${process.pid}-${Date.now().toString(36)}-${renderCandidateSequence}.tmp`,
+  );
+}
+
+function openExclusiveRenderCandidate(candidatePath, mode) {
+  const noFollow = process.platform === 'win32' ? 0 : (fs.constants.O_NOFOLLOW || 0);
+  return fs.openSync(
+    candidatePath,
+    fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | noFollow,
+    mode ?? 0o666,
+  );
+}
+
+function bindRetryIdentity(descriptor) {
+  try {
+    const retry = fs.fstatSync(descriptor, { bigint: true });
+    if (retry.isFile() && retry.ino !== 0n) {
+      return { device: retry.dev, inode: retry.ino };
+    }
+  } catch {}
+  return undefined;
+}
+
+function identityFromCandidateStat(metadata) {
+  if (!metadata.isFile() || metadata.ino === 0n) {
+    throw new Error('Temporary render candidate identity could not be verified safely.');
+  }
+  return { device: metadata.dev, inode: metadata.ino };
+}
+
+function sealRenderCandidate(descriptor, html, mode) {
+  fs.writeFileSync(descriptor, html);
+  // Creation modes are filtered through the process umask. An atomic
+  // replacement must retain the exact permissions of an existing target,
+  // while a brand-new target should keep normal umask behavior.
+  if (mode !== null) fs.fchmodSync(descriptor, mode);
+  fs.closeSync(descriptor);
+}
+
+function closeRenderDescriptorQuietly(descriptor) {
+  if (descriptor === undefined) return;
+  try { fs.closeSync(descriptor); } catch {}
+}
+
+function rethrowAfterRenderCandidateCleanup(candidatePath, identity, error) {
+  if (identity) {
+    const cleanup = removeOwnedRegularFile(candidatePath, identity);
+    if (!['removed', 'absent', 'preserved'].includes(cleanup.status)) {
+      const cleanupError = new Error(`${error.message}; temporary render candidate cleanup also failed.`);
+      cleanupError.cause = error;
+      throw cleanupError;
+    }
+  }
+  throw error;
+}
+
+function throwRenderCandidateReservationExhausted(outputPath) {
+  const error = new Error(`Could not reserve a temporary render candidate beside "${outputPath}".`);
+  error.code = 'EEXIST';
+  error.errno = -17;
+  error.syscall = 'open';
+  throw error;
+}
+
 function stageRenderedHtml(outputPath, html, mode) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    renderCandidateSequence += 1;
-    const candidatePath = path.join(
-      path.dirname(outputPath),
-      `.archify-render-${process.pid}-${Date.now().toString(36)}-${renderCandidateSequence}.tmp`,
-    );
+    const candidatePath = nextRenderCandidatePath(outputPath);
     let descriptor;
     let identity;
     try {
-      const noFollow = process.platform === 'win32' ? 0 : (fs.constants.O_NOFOLLOW || 0);
-      descriptor = fs.openSync(
-        candidatePath,
-        fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | noFollow,
-        mode ?? 0o666,
-      );
+      descriptor = openExclusiveRenderCandidate(candidatePath, mode);
       let metadata;
       try {
         metadata = fs.fstatSync(descriptor, { bigint: true });
@@ -215,47 +274,20 @@ function stageRenderedHtml(outputPath, html, mode) {
         // A transient first inspection failure must not strand the exclusive
         // candidate. A successful retry binds cleanup to the still-open file;
         // if both inspections fail, preserving the unknown entry is safer.
-        try {
-          const retry = fs.fstatSync(descriptor, { bigint: true });
-          if (retry.isFile() && retry.ino !== 0n) {
-            identity = { device: retry.dev, inode: retry.ino };
-          }
-        } catch {}
+        identity = bindRetryIdentity(descriptor);
         throw error;
       }
-      if (!metadata.isFile() || metadata.ino === 0n) {
-        throw new Error('Temporary render candidate identity could not be verified safely.');
-      }
-      identity = { device: metadata.dev, inode: metadata.ino };
-      fs.writeFileSync(descriptor, html);
-      // Creation modes are filtered through the process umask. An atomic
-      // replacement must retain the exact permissions of an existing target,
-      // while a brand-new target should keep normal umask behavior.
-      if (mode !== null) fs.fchmodSync(descriptor, mode);
-      fs.closeSync(descriptor);
+      identity = identityFromCandidateStat(metadata);
+      sealRenderCandidate(descriptor, html, mode);
       descriptor = undefined;
       return { candidatePath, identity };
     } catch (error) {
-      if (descriptor !== undefined) {
-        try { fs.closeSync(descriptor); } catch {}
-      }
+      closeRenderDescriptorQuietly(descriptor);
       if (error.code === 'EEXIST') continue;
-      if (identity) {
-        const cleanup = removeOwnedRegularFile(candidatePath, identity);
-        if (!['removed', 'absent', 'preserved'].includes(cleanup.status)) {
-          const cleanupError = new Error(`${error.message}; temporary render candidate cleanup also failed.`);
-          cleanupError.cause = error;
-          throw cleanupError;
-        }
-      }
-      throw error;
+      rethrowAfterRenderCandidateCleanup(candidatePath, identity, error);
     }
   }
-  const error = new Error(`Could not reserve a temporary render candidate beside "${outputPath}".`);
-  error.code = 'EEXIST';
-  error.errno = -17;
-  error.syscall = 'open';
-  throw error;
+  throwRenderCandidateReservationExhausted(outputPath);
 }
 
 // Common CLI tail: fill the template and write the standalone HTML file.
