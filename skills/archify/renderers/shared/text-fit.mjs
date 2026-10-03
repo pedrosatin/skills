@@ -21,7 +21,7 @@ import { textUnits, SEMANTIC_SIGIL_INSET, SEMANTIC_SIGIL_SIZE, SEMANTIC_SIGIL_FO
 // widthFactor: px of advance width per text unit, per px of font size.
 // horizontalPadding: total px reserved inside the box so text never touches
 // the border.
-export const nodeTextFit = {
+const nodeTextFit = {
   widthFactor: 0.6,
   horizontalPadding: 8,
 };
