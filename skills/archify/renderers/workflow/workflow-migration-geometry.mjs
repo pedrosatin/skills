@@ -62,7 +62,7 @@ function mappedNumber(value) {
  * using the nearest segment so explicitly authored outside corridors retain
  * their relative offset.
  */
-export function createHorizontalRankMapper(oldColumns, newColumns) {
+function createHorizontalRankMapper(oldColumns, newColumns) {
   if (
     !Array.isArray(oldColumns)
     || !Array.isArray(newColumns)
@@ -104,7 +104,7 @@ export function createHorizontalRankMapper(oldColumns, newColumns) {
  * The caller owns the supplied workflow; this function reports an audit trail
  * for each changed coordinate in stable document order.
  */
-export function mapExplicitCoordinates(workflow, mapX) {
+function mapExplicitCoordinates(workflow, mapX) {
   const changedCoordinates = [];
   const record = (path, owner, property) => {
     const from = owner[property];

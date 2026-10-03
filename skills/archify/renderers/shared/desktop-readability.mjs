@@ -1,13 +1,13 @@
 export const DESKTOP_READABILITY_VIEWPORT = Object.freeze({ width: 1440, height: 900 });
-export const DESKTOP_READER_MIN_WIDTH = 960;
-export const DESKTOP_READER_HORIZONTAL_CHROME = 30;
+const DESKTOP_READER_MIN_WIDTH = 960;
+const DESKTOP_READER_HORIZONTAL_CHROME = 30;
 export const DESKTOP_READER_DIAGRAM_WIDTH = DESKTOP_READER_MIN_WIDTH - DESKTOP_READER_HORIZONTAL_CHROME;
 export const MIN_PROJECTED_NODE_TEXT_PX = 6;
 export const DECLARED_WIDE_READER_CONTRACT = 'declared-wide-v1';
-export const DECLARED_WIDE_READER_RATIO = 1.55;
-export const DECLARED_WIDE_READER_MAX_WIDTH = 1920;
-export const DECLARED_WIDE_REFERENCE_BODY_HORIZONTAL_PX = 64;
-export const DECLARED_WIDE_REFERENCE_DIAGRAM_HORIZONTAL_PX = 30;
+const DECLARED_WIDE_READER_RATIO = 1.55;
+const DECLARED_WIDE_READER_MAX_WIDTH = 1920;
+const DECLARED_WIDE_REFERENCE_BODY_HORIZONTAL_PX = 64;
+const DECLARED_WIDE_REFERENCE_DIAGRAM_HORIZONTAL_PX = 30;
 
 export function projectedNodeTextPx(sourceFontPx, viewBoxWidth, diagramWidth = DESKTOP_READER_DIAGRAM_WIDTH) {
   if (![sourceFontPx, viewBoxWidth, diagramWidth].every(Number.isFinite) || viewBoxWidth <= 0 || diagramWidth <= 0) {
@@ -85,7 +85,7 @@ export function declaredWideReadabilityBudget({
 // viewport, measured from the delivered Viewer with the shortest one-line
 // header and no cards: body padding 12, header 39, diagram padding/border 75.
 // Cards are excluded so the prediction stays a lower bound.
-export const DESKTOP_FIXED_VERTICAL_CHROME_PX = Object.freeze({ body: 12, header: 39, diagram: 75 });
+const DESKTOP_FIXED_VERTICAL_CHROME_PX = Object.freeze({ body: 12, header: 39, diagram: 75 });
 
 // A canvas the Reader can neither narrow (viewBox ratio below the wide
 // threshold) nor scroll readably (no intrinsic-height fit) renders at the full

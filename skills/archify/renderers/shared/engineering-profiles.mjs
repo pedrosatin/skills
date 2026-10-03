@@ -20,7 +20,7 @@ function membership(boundaries, componentId, kind) {
     .filter(({ boundary }) => boundary.kind === kind && boundary.wraps.includes(componentId));
 }
 
-export function deploymentOwnershipDiagnostics(diagram) {
+function deploymentOwnershipDiagnostics(diagram) {
   const components = Array.isArray(diagram.components) ? diagram.components : [];
   const boundaries = (Array.isArray(diagram.boundaries) ? diagram.boundaries : [])
     .map((boundary) => ({ ...boundary, wraps: Array.isArray(boundary.wraps) ? boundary.wraps : [] }));

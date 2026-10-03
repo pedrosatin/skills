@@ -297,7 +297,7 @@ function rememberSemanticEntry(semanticIndex, entry, variants) {
   }
 }
 
-export function validatePortablePathSet(values, options = {}) {
+function validatePortablePathSet(values, options = {}) {
   const profile = options?.profile;
   assertProfile(profile);
   if (!Array.isArray(values)) {
