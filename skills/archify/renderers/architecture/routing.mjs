@@ -11,6 +11,8 @@ import {
   defaultToSide,
   chosenSide,
   properSegmentIntersection,
+  collinearOverlapLength,
+  orthogonalTouchOnSegmentInterior,
   routeHonorsEndpointSides,
   normalizeRoutePoints,
   rectsOverlap,
@@ -139,50 +141,6 @@ export function createRouter(components, connections = [], {
       || left.to === right.to;
   }
 
-  function collinearOverlapLength(leftStart, leftEnd, rightStart, rightEnd) {
-    const epsilon = 0.0001;
-    if (Math.abs(leftStart[0] - leftEnd[0]) <= epsilon
-        && Math.abs(rightStart[0] - rightEnd[0]) <= epsilon
-        && Math.abs(leftStart[0] - rightStart[0]) <= epsilon) {
-      return Math.max(0,
-        Math.min(Math.max(leftStart[1], leftEnd[1]), Math.max(rightStart[1], rightEnd[1]))
-          - Math.max(Math.min(leftStart[1], leftEnd[1]), Math.min(rightStart[1], rightEnd[1])));
-    }
-    if (Math.abs(leftStart[1] - leftEnd[1]) <= epsilon
-        && Math.abs(rightStart[1] - rightEnd[1]) <= epsilon
-        && Math.abs(leftStart[1] - rightStart[1]) <= epsilon) {
-      return Math.max(0,
-        Math.min(Math.max(leftStart[0], leftEnd[0]), Math.max(rightStart[0], rightEnd[0]))
-          - Math.max(Math.min(leftStart[0], leftEnd[0]), Math.min(rightStart[0], rightEnd[0])));
-    }
-    return 0;
-  }
-
-  function orthogonalTouchOnResolvedInterior(start, end, resolvedStart, resolvedEnd) {
-    const epsilon = 0.0001;
-    const candidateHorizontal = Math.abs(start[1] - end[1]) <= epsilon;
-    const candidateVertical = Math.abs(start[0] - end[0]) <= epsilon;
-    const resolvedHorizontal = Math.abs(resolvedStart[1] - resolvedEnd[1]) <= epsilon;
-    const resolvedVertical = Math.abs(resolvedStart[0] - resolvedEnd[0]) <= epsilon;
-    if (candidateHorizontal && resolvedVertical) {
-      const x = resolvedStart[0];
-      const y = start[1];
-      return x >= Math.min(start[0], end[0]) - epsilon
-        && x <= Math.max(start[0], end[0]) + epsilon
-        && y > Math.min(resolvedStart[1], resolvedEnd[1]) + epsilon
-        && y < Math.max(resolvedStart[1], resolvedEnd[1]) - epsilon;
-    }
-    if (candidateVertical && resolvedHorizontal) {
-      const x = start[0];
-      const y = resolvedStart[1];
-      return y >= Math.min(start[1], end[1]) - epsilon
-        && y <= Math.max(start[1], end[1]) + epsilon
-        && x > Math.min(resolvedStart[0], resolvedEnd[0]) + epsilon
-        && x < Math.max(resolvedStart[0], resolvedEnd[0]) - epsilon;
-    }
-    return false;
-  }
-
   function unrelatedResolvedRoutes(conn, resolvedRoutes) {
     return resolvedRoutes.filter((entry) => !relationshipsShareEndpoint(conn, entry.conn));
   }
@@ -198,7 +156,7 @@ export function createRouter(components, connections = [], {
             entry.points[right],
             entry.points[right + 1],
           )) return true;
-          if (orthogonalTouchOnResolvedInterior(
+          if (orthogonalTouchOnSegmentInterior(
             points[left],
             points[left + 1],
             entry.points[right],

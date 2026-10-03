@@ -1,8 +1,10 @@
 import { recordDiagnostic } from './diagnostics.mjs';
 import {
   asArray,
+  collinearOverlapLength,
   isFinitePoint,
   normalizeRoutePoints,
+  orthogonalTouchOnSegmentInterior,
   properSegmentIntersection,
   segmentIntersectsRect,
 } from './geometry.mjs';
@@ -185,34 +187,9 @@ function segmentBlocked(start, end, obstacles) {
 function segmentConflictsWithAvoided(start, end, avoidedSegments, minimumOverlapPx, allowCrossings) {
   return avoidedSegments.some((segment) => (
     (!allowCrossings && (properSegmentIntersection(start, end, segment.start, segment.end)
-      || orthogonalTouchOnAvoidedInterior(start, end, segment.start, segment.end)))
-      || collinearOverlap(start, end, segment.start, segment.end) >= minimumOverlapPx
+      || orthogonalTouchOnSegmentInterior(start, end, segment.start, segment.end)))
+      || collinearOverlapLength(start, end, segment.start, segment.end) >= minimumOverlapPx
   ));
-}
-
-function orthogonalTouchOnAvoidedInterior(start, end, avoidedStart, avoidedEnd) {
-  const epsilon = 0.0001;
-  const candidateHorizontal = Math.abs(start[1] - end[1]) <= epsilon;
-  const candidateVertical = Math.abs(start[0] - end[0]) <= epsilon;
-  const avoidedHorizontal = Math.abs(avoidedStart[1] - avoidedEnd[1]) <= epsilon;
-  const avoidedVertical = Math.abs(avoidedStart[0] - avoidedEnd[0]) <= epsilon;
-  if (candidateHorizontal && avoidedVertical) {
-    const x = avoidedStart[0];
-    const y = start[1];
-    return x >= Math.min(start[0], end[0]) - epsilon
-      && x <= Math.max(start[0], end[0]) + epsilon
-      && y > Math.min(avoidedStart[1], avoidedEnd[1]) + epsilon
-      && y < Math.max(avoidedStart[1], avoidedEnd[1]) - epsilon;
-  }
-  if (candidateVertical && avoidedHorizontal) {
-    const x = start[0];
-    const y = avoidedStart[1];
-    return y >= Math.min(start[1], end[1]) - epsilon
-      && y <= Math.max(start[1], end[1]) + epsilon
-      && x > Math.min(avoidedStart[0], avoidedEnd[0]) + epsilon
-      && x < Math.max(avoidedStart[0], avoidedEnd[0]) - epsilon;
-  }
-  return false;
 }
 
 function pointOnSegmentInterior(point, start, end) {
@@ -377,7 +354,7 @@ export function shortestOrthogonalGridRoute({
         allowAvoidedCrossings,
       )) continue;
       if (relevantBorderSegments.some((segment) => (
-        collinearOverlap(left, right, segment.start, segment.end) > 0.0001
+        collinearOverlapLength(left, right, segment.start, segment.end) > 0.0001
       ))) continue;
       const distance = Math.abs(right[0] - left[0]) + Math.abs(right[1] - left[1]);
       const leftKey = pointKey(left);
@@ -464,20 +441,6 @@ export function shortestOrthogonalGridRoute({
   };
 }
 
-function collinearOverlap(leftStart, leftEnd, rightStart, rightEnd) {
-  if (leftStart[0] === leftEnd[0] && rightStart[0] === rightEnd[0]
-      && leftStart[0] === rightStart[0]) {
-    return Math.max(0, Math.min(Math.max(leftStart[1], leftEnd[1]), Math.max(rightStart[1], rightEnd[1]))
-      - Math.max(Math.min(leftStart[1], leftEnd[1]), Math.min(rightStart[1], rightEnd[1])));
-  }
-  if (leftStart[1] === leftEnd[1] && rightStart[1] === rightEnd[1]
-      && leftStart[1] === rightStart[1]) {
-    return Math.max(0, Math.min(Math.max(leftStart[0], leftEnd[0]), Math.max(rightStart[0], rightEnd[0]))
-      - Math.max(Math.min(leftStart[0], leftEnd[0]), Math.min(rightStart[0], rightEnd[0])));
-  }
-  return 0;
-}
-
 function segmentOutsideContent(start, end, contentBounds) {
   if (!contentBounds) return false;
   const midpoint = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
@@ -495,7 +458,7 @@ function sharesOuterCorridor({ relation, relations, pathFor, points, contentBoun
     for (let left = 0; left < points.length - 1; left += 1) {
       if (!segmentOutsideContent(points[left], points[left + 1], contentBounds)) continue;
       for (let right = 0; right < otherPoints.length - 1; right += 1) {
-        if (collinearOverlap(points[left], points[left + 1], otherPoints[right], otherPoints[right + 1]) >= minimumOverlap) {
+        if (collinearOverlapLength(points[left], points[left + 1], otherPoints[right], otherPoints[right + 1]) >= minimumOverlap) {
           return true;
         }
       }
