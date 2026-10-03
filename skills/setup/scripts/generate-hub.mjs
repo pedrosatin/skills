@@ -226,86 +226,102 @@ function collectThemeFiles(root) {
   return [...new Set(files)];
 }
 
-function inferProjectTheme(root) {
-  const fallback = {
+function defaultProjectTheme() {
+  return {
     accent: DEFAULT_ACCENT,
     accentFg: DEFAULT_ACCENT_FG,
     source: 'default',
   };
-  if (useFixture) return fallback;
+}
 
-  const candidates = []; // { hex, score, source }
+function pushThemeCandidate(candidates, hex, score, source) {
+  const n = normalizeHex(hex);
+  if (!n || !isUsableBrandHex(n)) return;
+  candidates.push({ hex: n, score, source });
+}
 
-  const push = (hex, score, source) => {
-    const n = normalizeHex(hex);
-    if (!n || !isUsableBrandHex(n)) return;
-    candidates.push({ hex: n, score, source });
-  };
+function collectHtmlMetaThemeCandidates(text, rel, push) {
+  // meta theme-color / tile / mask-icon (skip pure bg chrome later via isUsableBrandHex)
+  const themeColor = text.match(/<meta\s+[^>]*name=["']theme-color["'][^>]*content=["']([^"']+)["']/i)
+    || text.match(/<meta\s+[^>]*content=["']([^"']+)["'][^>]*name=["']theme-color["']/i);
+  if (themeColor) push(themeColor[1], 55, `meta:theme-color@${rel}`);
+  const tile = text.match(/<meta\s+[^>]*name=["']msapplication-TileColor["'][^>]*content=["']([^"']+)["']/i)
+    || text.match(/<meta\s+[^>]*content=["']([^"']+)["'][^>]*name=["']msapplication-TileColor["']/i);
+  if (tile) push(tile[1], 58, `meta:tile@${rel}`);
+  const mask = text.match(/<link\s+[^>]*rel=["']mask-icon["'][^>]*color=["']([^"']+)["']/i)
+    || text.match(/<link\s+[^>]*color=["']([^"']+)["'][^>]*rel=["']mask-icon["']/i);
+  if (mask) push(mask[1], 62, `mask-icon@${rel}`);
+}
 
-  const files = collectThemeFiles(root);
+function collectCssVarThemeCandidates(text, rel, push) {
+  const varRe = /(--[A-Za-z0-9-_]+)\s*:\s*([^;{}]+)/g;
+  let m;
+  while ((m = varRe.exec(text)) !== null) {
+    const name = m[1];
+    const score = scoreBrandVar(name);
+    if (score <= 0) continue;
+    const hex = extractHexFromCssValue(m[2]);
+    if (hex) push(hex, score, `css:${name}@${rel}`);
+  }
+}
+
+function collectTailwindPrimaryCandidates(text, base, rel, push) {
+  if (!/^tailwind\.config\./.test(base)) return;
+  const primaryBlock = text.match(/primary\s*:\s*\{([^}]{0,800})\}/);
+  if (primaryBlock) {
+    const def = primaryBlock[1].match(/DEFAULT\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i)
+      || primaryBlock[1].match(/500\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i)
+      || primaryBlock[1].match(/['"](#[0-9a-fA-F]{3,8})['"]/);
+    if (def) push(def[1], 96, `tailwind:primary@${rel}`);
+  }
+  const primaryFlat = text.match(/primary\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i);
+  if (primaryFlat) push(primaryFlat[1], 96, `tailwind:primary@${rel}`);
+}
+
+function collectBrandClassThemeCandidates(text, base, rel, push) {
+  if (!(/\.(css|scss|sass)$/i.test(base) || base.endsWith('.html'))) return;
+  const classRe = /\.(brand-mark|btn-primary|button-primary|primary|brand)[^{.]*\{([^}]{0,400})\}/gi;
+  let cm;
+  while ((cm = classRe.exec(text)) !== null) {
+    const hex = extractHexFromCssValue(cm[2])
+      || (cm[2].match(/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/) || [])[0];
+    if (hex) push(hex, 75, `class:.${cm[1]}@${rel}`);
+  }
+}
+
+function readThemeFileText(file) {
+  try {
+    const st = fs.statSync(file);
+    if (st.size > 400_000) return null;
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function collectThemeCandidatesFromFiles(root, files) {
+  const candidates = [];
+  const push = (hex, score, source) => pushThemeCandidate(candidates, hex, score, source);
+
   for (const file of files) {
-    let text = '';
-    try {
-      const st = fs.statSync(file);
-      if (st.size > 400_000) continue;
-      text = fs.readFileSync(file, 'utf8');
-    } catch {
-      continue;
-    }
+    const text = readThemeFileText(file);
+    if (text === null) continue;
     const base = path.basename(file).toLowerCase();
     const rel = path.relative(root, file).split(path.sep).join('/');
 
-    // meta theme-color / tile / mask-icon (skip pure bg chrome later via isUsableBrandHex)
     if (base.endsWith('.html')) {
-      const themeColor = text.match(/<meta\s+[^>]*name=["']theme-color["'][^>]*content=["']([^"']+)["']/i)
-        || text.match(/<meta\s+[^>]*content=["']([^"']+)["'][^>]*name=["']theme-color["']/i);
-      if (themeColor) push(themeColor[1], 55, `meta:theme-color@${rel}`);
-      const tile = text.match(/<meta\s+[^>]*name=["']msapplication-TileColor["'][^>]*content=["']([^"']+)["']/i)
-        || text.match(/<meta\s+[^>]*content=["']([^"']+)["'][^>]*name=["']msapplication-TileColor["']/i);
-      if (tile) push(tile[1], 58, `meta:tile@${rel}`);
-      const mask = text.match(/<link\s+[^>]*rel=["']mask-icon["'][^>]*color=["']([^"']+)["']/i)
-        || text.match(/<link\s+[^>]*color=["']([^"']+)["'][^>]*rel=["']mask-icon["']/i);
-      if (mask) push(mask[1], 62, `mask-icon@${rel}`);
+      collectHtmlMetaThemeCandidates(text, rel, push);
     }
-
-    // CSS custom properties
-    const varRe = /(--[A-Za-z0-9-_]+)\s*:\s*([^;{}]+)/g;
-    let m;
-    while ((m = varRe.exec(text)) !== null) {
-      const name = m[1];
-      const score = scoreBrandVar(name);
-      if (score <= 0) continue;
-      const hex = extractHexFromCssValue(m[2]);
-      if (hex) push(hex, score, `css:${name}@${rel}`);
-    }
-
-    // Tailwind theme primary
-    if (/^tailwind\.config\./.test(base)) {
-      const primaryBlock = text.match(/primary\s*:\s*\{([^}]{0,800})\}/);
-      if (primaryBlock) {
-        const def = primaryBlock[1].match(/DEFAULT\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i)
-          || primaryBlock[1].match(/500\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i)
-          || primaryBlock[1].match(/['"](#[0-9a-fA-F]{3,8})['"]/);
-        if (def) push(def[1], 96, `tailwind:primary@${rel}`);
-      }
-      const primaryFlat = text.match(/primary\s*:\s*['"](#[0-9a-fA-F]{3,8})['"]/i);
-      if (primaryFlat) push(primaryFlat[1], 96, `tailwind:primary@${rel}`);
-    }
-
-    // Class selectors that usually carry brand paint (no CSS vars)
-    if (/\.(css|scss|sass)$/i.test(base) || base.endsWith('.html')) {
-      const classRe = /\.(brand-mark|btn-primary|button-primary|primary|brand)[^{.]*\{([^}]{0,400})\}/gi;
-      let cm;
-      while ((cm = classRe.exec(text)) !== null) {
-        const hex = extractHexFromCssValue(cm[2])
-          || (cm[2].match(/#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/) || [])[0];
-        if (hex) push(hex, 75, `class:.${cm[1]}@${rel}`);
-      }
-    }
+    collectCssVarThemeCandidates(text, rel, push);
+    collectTailwindPrimaryCandidates(text, base, rel, push);
+    collectBrandClassThemeCandidates(text, base, rel, push);
   }
 
-  if (!candidates.length) return fallback;
+  return candidates;
+}
 
+function selectBestProjectTheme(candidates, fallback) {
+  if (!candidates.length) return fallback;
   candidates.sort((a, b) => b.score - a.score || hexChroma(b.hex) - hexChroma(a.hex));
   const best = candidates[0];
   return {
@@ -313,6 +329,13 @@ function inferProjectTheme(root) {
     accentFg: accentFgFor(best.hex),
     source: best.source,
   };
+}
+
+function inferProjectTheme(root) {
+  const fallback = defaultProjectTheme();
+  if (useFixture) return fallback;
+  const candidates = collectThemeCandidatesFromFiles(root, collectThemeFiles(root));
+  return selectBestProjectTheme(candidates, fallback);
 }
 
 const projectTheme = inferProjectTheme(repoRoot);
@@ -681,6 +704,77 @@ function isMdBlockStart(line) {
   return false;
 }
 
+function consumeFencedCodeBlock(lines, start) {
+  const buf = [];
+  let i = start + 1;
+  while (i < lines.length && !/^```\s*$/.test(lines[i])) {
+    buf.push(lines[i]);
+    i++;
+  }
+  if (i < lines.length) i++;
+  return {
+    html: `<pre><code>${escapeHtml(buf.join('\n'))}</code></pre>`,
+    next: i,
+  };
+}
+
+function consumeBlockquote(lines, start) {
+  const buf = [];
+  let i = start;
+  while (i < lines.length && /^>\s?/.test(lines[i])) {
+    buf.push(lines[i].replace(/^>\s?/, ''));
+    i++;
+  }
+  return {
+    html: `<blockquote>${renderMarkdown(buf.join('\n'))}</blockquote>`,
+    next: i,
+  };
+}
+
+function renderMarkdownListItem(raw) {
+  const task = raw.match(/^\[([ xX])\]\s+(.*)$/);
+  if (task) {
+    const checked = task[1].toLowerCase() === 'x' ? ' checked' : '';
+    return `<li><input type="checkbox" disabled${checked}> ${renderInline(task[2])}</li>`;
+  }
+  return `<li>${renderInline(raw)}</li>`;
+}
+
+function consumeMarkdownList(lines, start, ordered) {
+  const tag = ordered ? 'ol' : 'ul';
+  const items = [];
+  let i = start;
+  while (i < lines.length) {
+    const u = lines[i].match(/^(\s*)([-*])\s+(.*)$/);
+    const o = lines[i].match(/^(\s*)(\d+)\.\s+(.*)$/);
+    if (ordered) {
+      if (!o) break;
+      items.push(o[3]);
+    } else {
+      if (!u) break;
+      items.push(u[3]);
+    }
+    i++;
+  }
+  return {
+    html: `<${tag}>${items.map(renderMarkdownListItem).join('')}</${tag}>`,
+    next: i,
+  };
+}
+
+function consumeParagraph(lines, start) {
+  const buf = [lines[start]];
+  let i = start + 1;
+  while (i < lines.length && !isMdBlockStart(lines[i])) {
+    buf.push(lines[i]);
+    i++;
+  }
+  return {
+    html: `<p>${renderInline(buf.join(' '))}</p>`,
+    next: i,
+  };
+}
+
 function renderMarkdown(md) {
   if (!md) return '';
   const lines = String(md).replace(/\r\n/g, '\n').split('\n');
@@ -690,16 +784,10 @@ function renderMarkdown(md) {
   while (i < lines.length) {
     const line = lines[i];
 
-    const fence = line.match(/^```(\w*)\s*$/);
-    if (fence) {
-      const buf = [];
-      i++;
-      while (i < lines.length && !/^```\s*$/.test(lines[i])) {
-        buf.push(lines[i]);
-        i++;
-      }
-      if (i < lines.length) i++;
-      out.push(`<pre><code>${escapeHtml(buf.join('\n'))}</code></pre>`);
+    if (/^```(\w*)\s*$/.test(line)) {
+      const block = consumeFencedCodeBlock(lines, i);
+      out.push(block.html);
+      i = block.next;
       continue;
     }
 
@@ -718,42 +806,18 @@ function renderMarkdown(md) {
     }
 
     if (/^>\s?/.test(line)) {
-      const buf = [];
-      while (i < lines.length && /^>\s?/.test(lines[i])) {
-        buf.push(lines[i].replace(/^>\s?/, ''));
-        i++;
-      }
-      out.push(`<blockquote>${renderMarkdown(buf.join('\n'))}</blockquote>`);
+      const block = consumeBlockquote(lines, i);
+      out.push(block.html);
+      i = block.next;
       continue;
     }
 
     const ulStart = line.match(/^(\s*)([-*])\s+(.*)$/);
     const olStart = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
     if (ulStart || olStart) {
-      const ordered = !!olStart;
-      const tag = ordered ? 'ol' : 'ul';
-      const items = [];
-      while (i < lines.length) {
-        const u = lines[i].match(/^(\s*)([-*])\s+(.*)$/);
-        const o = lines[i].match(/^(\s*)(\d+)\.\s+(.*)$/);
-        if (ordered) {
-          if (!o) break;
-          items.push(o[3]);
-        } else {
-          if (!u) break;
-          items.push(u[3]);
-        }
-        i++;
-      }
-      const lis = items.map((raw) => {
-        const task = raw.match(/^\[([ xX])\]\s+(.*)$/);
-        if (task) {
-          const checked = task[1].toLowerCase() === 'x' ? ' checked' : '';
-          return `<li><input type="checkbox" disabled${checked}> ${renderInline(task[2])}</li>`;
-        }
-        return `<li>${renderInline(raw)}</li>`;
-      });
-      out.push(`<${tag}>${lis.join('')}</${tag}>`);
+      const block = consumeMarkdownList(lines, i, !!olStart);
+      out.push(block.html);
+      i = block.next;
       continue;
     }
 
@@ -762,13 +826,9 @@ function renderMarkdown(md) {
       continue;
     }
 
-    const buf = [line];
-    i++;
-    while (i < lines.length && !isMdBlockStart(lines[i])) {
-      buf.push(lines[i]);
-      i++;
-    }
-    out.push(`<p>${renderInline(buf.join(' '))}</p>`);
+    const block = consumeParagraph(lines, i);
+    out.push(block.html);
+    i = block.next;
   }
 
   return out.join('\n');
