@@ -1,5 +1,5 @@
 export const SUPPORTED_LOCALES = ['en', 'zh-CN'];
-export const DEFAULT_LOCALE = 'en';
+const DEFAULT_LOCALE = 'en';
 
 const ESCAPE_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
