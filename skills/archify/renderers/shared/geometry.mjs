@@ -1435,6 +1435,55 @@ export function properSegmentIntersection(a, b, c, d) {
   ];
 }
 
+/** Length of the collinear overlap of two axis-aligned segments, or 0. */
+export function collinearOverlapLength(leftStart, leftEnd, rightStart, rightEnd) {
+  const epsilon = 0.0001;
+  if (Math.abs(leftStart[0] - leftEnd[0]) <= epsilon
+      && Math.abs(rightStart[0] - rightEnd[0]) <= epsilon
+      && Math.abs(leftStart[0] - rightStart[0]) <= epsilon) {
+    return Math.max(0,
+      Math.min(Math.max(leftStart[1], leftEnd[1]), Math.max(rightStart[1], rightEnd[1]))
+        - Math.max(Math.min(leftStart[1], leftEnd[1]), Math.min(rightStart[1], rightEnd[1])));
+  }
+  if (Math.abs(leftStart[1] - leftEnd[1]) <= epsilon
+      && Math.abs(rightStart[1] - rightEnd[1]) <= epsilon
+      && Math.abs(leftStart[1] - rightStart[1]) <= epsilon) {
+    return Math.max(0,
+      Math.min(Math.max(leftStart[0], leftEnd[0]), Math.max(rightStart[0], rightEnd[0]))
+        - Math.max(Math.min(leftStart[0], leftEnd[0]), Math.min(rightStart[0], rightEnd[0])));
+  }
+  return 0;
+}
+
+/**
+ * True when an axis-aligned candidate segment touches the interior of another
+ * orthogonal segment (T-junction style contact without a proper crossing).
+ */
+export function orthogonalTouchOnSegmentInterior(start, end, otherStart, otherEnd) {
+  const epsilon = 0.0001;
+  const candidateHorizontal = Math.abs(start[1] - end[1]) <= epsilon;
+  const candidateVertical = Math.abs(start[0] - end[0]) <= epsilon;
+  const otherHorizontal = Math.abs(otherStart[1] - otherEnd[1]) <= epsilon;
+  const otherVertical = Math.abs(otherStart[0] - otherEnd[0]) <= epsilon;
+  if (candidateHorizontal && otherVertical) {
+    const x = otherStart[0];
+    const y = start[1];
+    return x >= Math.min(start[0], end[0]) - epsilon
+      && x <= Math.max(start[0], end[0]) + epsilon
+      && y > Math.min(otherStart[1], otherEnd[1]) + epsilon
+      && y < Math.max(otherStart[1], otherEnd[1]) - epsilon;
+  }
+  if (candidateVertical && otherHorizontal) {
+    const x = start[0];
+    const y = otherStart[1];
+    return y >= Math.min(start[1], end[1]) - epsilon
+      && y <= Math.max(start[1], end[1]) + epsilon
+      && x > Math.min(otherStart[0], otherEnd[0]) + epsilon
+      && x < Math.max(otherStart[0], otherEnd[0]) - epsilon;
+  }
+  return false;
+}
+
 function crossProduct(a, b, c) {
   return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 }
