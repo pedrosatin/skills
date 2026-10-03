@@ -253,7 +253,7 @@ function windowsPathComponents(rawOutput, normalized) {
  * component bound also protects derived sidecars from failing after an
  * operation has already started mutating the destination.
  */
-export function validateNativeOutputPath(
+function validateNativeOutputPath(
   rawOutput,
   { platform = process.platform, kind = 'file' } = {},
 ) {
@@ -356,7 +356,7 @@ export function validateAuthoredOutputPath(rawOutput, { cwd = process.cwd() } = 
   return rawOutput;
 }
 
-export class OutputPathError extends Error {
+class OutputPathError extends Error {
   constructor(message, diagnostic) {
     super(message);
     this.name = 'OutputPathError';

@@ -73,7 +73,7 @@ function applyLocaleTranslations(diagramType, diagram) {
 // Common CLI head: node render-<type>.mjs [input.json] [output.html]
 // Keep this synchronous because callers also use it to establish the guarded
 // output path before testing a last-moment filesystem alias change.
-export function loadDiagram({ rendererDir, diagramType, defaultExample, argv = process.argv }) {
+function loadDiagram({ rendererDir, diagramType, defaultExample, argv = process.argv }) {
   // Compilers also import this module for SVG helpers. Only CLI execution
   // should install a process-level handler, before reading or validating input.
   installRendererDiagnosticBoundary();
@@ -350,7 +350,7 @@ const RELATIONSHIP_COLLECTIONS = {
 // author supplies one it becomes the durable identity used by viewer links.
 // Keep uniqueness enforcement in the shared zero-install path so every typed
 // renderer fails the same way even when development dependencies are absent.
-export function validateRelationshipIds(diagramType, diagram) {
+function validateRelationshipIds(diagramType, diagram) {
   const collection = RELATIONSHIP_COLLECTIONS[diagramType];
   const relationships = collection && Array.isArray(diagram[collection]) ? diagram[collection] : [];
   const seen = new Set();

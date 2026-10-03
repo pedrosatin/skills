@@ -58,7 +58,7 @@ function domainMark(hostname) {
   return candidates[0]?.[1] || null;
 }
 
-export function findBrandMark(value) {
+function findBrandMark(value) {
   const url = asUrl(value);
   if (url) return domainMark(url.hostname);
   for (const form of lookupForms(value)) {
@@ -116,7 +116,7 @@ function ipv6Private(address) {
   return false;
 }
 
-export function isPrivateBrandAddress(address) {
+function isPrivateBrandAddress(address) {
   const family = net.isIP(address);
   return family === 4 ? ipv4Private(address) : (family === 6 ? ipv6Private(address) : true);
 }
