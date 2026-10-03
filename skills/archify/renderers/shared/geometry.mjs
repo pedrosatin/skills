@@ -98,7 +98,7 @@ export function segmentRectClearanceWithin(segment, rect, limit) {
   return segmentRectClearance(segment, rect);
 }
 
-export function segmentRectIntersectionLength(segment, rect) {
+function segmentRectIntersectionLength(segment, rect) {
   if (!segment || !rect) return null;
   const { start, end } = segment;
   if (!Array.isArray(start) || !Array.isArray(end) || start.length !== 2 || end.length !== 2) return null;

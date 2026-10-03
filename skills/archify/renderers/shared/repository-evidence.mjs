@@ -137,7 +137,7 @@ function evidenceNodes(diagramType, diagram) {
   return { collection, nodes: Array.isArray(diagram?.[collection]) ? diagram[collection] : [] };
 }
 
-export function hasRepositoryEvidence(diagramType, diagram) {
+function hasRepositoryEvidence(diagramType, diagram) {
   const authored = evidenceNodes(diagramType, diagram);
   if (!authored) return false;
   return Boolean(diagram?.meta?.repository) || authored.nodes.some((node) => Array.isArray(node?.sources) && node.sources.length);
