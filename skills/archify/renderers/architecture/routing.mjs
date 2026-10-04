@@ -23,6 +23,104 @@ import {
 } from '../shared/geometry.mjs';
 import { shortestOrthogonalGridRoute } from '../shared/route-quality.mjs';
 
+const MINIMUM_PARALLEL_STUB_PX = 8;
+
+function midpointDoglegVias(start, end) {
+  const midX = (start[0] + end[0]) / 2;
+  const midY = (start[1] + end[1]) / 2;
+  return {
+    midX,
+    midY,
+    horizontalFirst: [[midX, start[1]], [midX, end[1]]],
+    verticalFirst: [[start[0], midY], [end[0], midY]],
+  };
+}
+
+function outsideParallelChannelVias(start, end, from, to, minimumStub = MINIMUM_PARALLEL_STUB_PX) {
+  const candidates = [];
+  const deltaX = Math.abs(start[0] - end[0]);
+  const deltaY = Math.abs(start[1] - end[1]);
+  const fromVerticalSide = start[1] === from.y || start[1] === from.y + from.height;
+  const toVerticalSide = end[1] === to.y || end[1] === to.y + to.height;
+  if (fromVerticalSide && toVerticalSide && deltaX < minimumStub * 2) {
+    for (const channelX of [
+      Math.max(start[0], end[0]) + minimumStub * 2,
+      Math.min(start[0], end[0]) - minimumStub * 2,
+    ]) {
+      candidates.push([[channelX, start[1]], [channelX, end[1]]]);
+    }
+  }
+  const fromHorizontalSide = start[0] === from.x || start[0] === from.x + from.width;
+  const toHorizontalSide = end[0] === to.x || end[0] === to.x + to.width;
+  if (fromHorizontalSide && toHorizontalSide && deltaY < minimumStub * 2) {
+    for (const channelY of [
+      Math.max(start[1], end[1]) + minimumStub * 2,
+      Math.min(start[1], end[1]) - minimumStub * 2,
+    ]) {
+      candidates.push([[start[0], channelY], [end[0], channelY]]);
+    }
+  }
+  return candidates;
+}
+
+function nearParallelPortPair(fromSide, toSide, deltaX, deltaY, minimumStub = MINIMUM_PARALLEL_STUB_PX) {
+  return (
+    ((fromSide === 'top' || fromSide === 'bottom')
+      && (toSide === 'top' || toSide === 'bottom')
+      && deltaX < minimumStub * 2)
+    || ((fromSide === 'left' || fromSide === 'right')
+      && (toSide === 'left' || toSide === 'right')
+      && deltaY < minimumStub * 2)
+  );
+}
+
+function orderAutomaticDoglegCandidates(sideSafe, sideAware, preferSideAware) {
+  return preferSideAware
+    ? [...sideAware, ...sideSafe]
+    : [...sideSafe, ...sideAware];
+}
+
+function steppedCorridorChannelVias(start, end, midX, midY) {
+  const channels = (fromCoord, toCoord, mid) => {
+    const [low, high] = [Math.min(fromCoord, toCoord) + 24, Math.max(fromCoord, toCoord) - 24];
+    const values = [];
+    for (let offset = 16; mid - offset >= low || mid + offset <= high; offset += 16) {
+      values.push(...[mid + offset, mid - offset].filter((value) => value >= low && value <= high));
+    }
+    return values;
+  };
+  return [
+    ...channels(start[0], end[0], midX).map((x) => [[x, start[1]], [x, end[1]]]),
+    ...channels(start[1], end[1], midY).map((y) => [[start[0], y], [end[0], y]]),
+  ];
+}
+
+function facingReciprocalAxis(firstSides, secondSides) {
+  const horizontal = firstSides.fromSide === 'right' && firstSides.toSide === 'left'
+    && secondSides.fromSide === 'left' && secondSides.toSide === 'right';
+  const horizontalReverse = firstSides.fromSide === 'left' && firstSides.toSide === 'right'
+    && secondSides.fromSide === 'right' && secondSides.toSide === 'left';
+  const vertical = firstSides.fromSide === 'bottom' && firstSides.toSide === 'top'
+    && secondSides.fromSide === 'top' && secondSides.toSide === 'bottom';
+  const verticalReverse = firstSides.fromSide === 'top' && firstSides.toSide === 'bottom'
+    && secondSides.fromSide === 'bottom' && secondSides.toSide === 'top';
+  if (horizontal || horizontalReverse) return 1;
+  if (vertical || verticalReverse) return 0;
+  return null;
+}
+
+function directLaneRoute(geometry, lane, axis) {
+  const start = [...geometry.start];
+  const end = [...geometry.end];
+  start[axis] = lane;
+  end[axis] = lane;
+  return { points: [start, end], d: roundedPath([start, end], 8) };
+}
+
+function laneValuesForGeometry(geometry, axis) {
+  return [...new Set([geometry.start[axis], geometry.end[axis]])];
+}
+
 /**
  * Router bound to one set of measured component boxes.
  *
@@ -350,6 +448,126 @@ export function createRouter(components, connections = [], {
     return crossingCount(conn, points, resolvedRoutes.filter((entry) => !reciprocal(entry.conn)));
   }
 
+  function automaticRouteClears(conn, points, from, to, resolvedRoutes, {
+    honorSides = null,
+    requireEndpointClearance = true,
+    requireDistinctCorridors = false,
+  } = {}) {
+    if (honorSides
+        && !routeHonorsEndpointSides(points, honorSides.fromSide, honorSides.toSide)) {
+      return false;
+    }
+    if (requireEndpointClearance && !routeClearsEndpointComponents(points, from, to)) {
+      return false;
+    }
+    if (!routeClearsComponents(conn, points)) return false;
+    if (!routeMeetsCompositionFloors(points)) return false;
+    if (routeConflictsWithResolved(conn, points, resolvedRoutes)) return false;
+    if (requireDistinctCorridors
+        && (routeOverlapsResolved(conn, points, resolvedRoutes)
+          || siblingCrossings(conn, points, resolvedRoutes))) {
+      return false;
+    }
+    return true;
+  }
+
+  function searchGridRouteVia(conn, from, to, start, end, fromSide, toSide, resolvedRoutes, fallback) {
+    // Two-bend doglegs are deliberately cheap, but a real architecture can
+    // place adjacent components on both of those corridors. Search a
+    // bounded obstacle grid before falling back to a route that the Clean
+    // Flow gate already knows violates the inferred endpoint directions.
+    // This keeps ordinary multi-bend avoidance renderer-owned instead of
+    // forcing the author to hand-place via points.
+    // Alternative endpoint pairs are cheap probes, not another grid-search
+    // budget. A legal short bridge often beats the first grid detour.
+    if (!allowGridSearch) return fallback;
+    if (planningMetrics.gridSearchCount >= planningMetrics.maximumGridSearchCount) {
+      planningMetrics.gridBudgetExhaustedCount += 1;
+      planningMetrics.conflictFallbackCount += 1;
+      return fallback;
+    }
+    // First-draft architecture graphs are not always planar at their
+    // authored node positions. The renderer gives automatic crossings a
+    // visible halo, so the grid owns opaque-node avoidance and rejects
+    // ambiguous shared corridors without forcing the model to hand-route
+    // a sprawling perimeter detour. Cheap candidates above still prefer a
+    // genuinely crossing-free path whenever one is available.
+    const avoidedSegments = resolvedRoutes
+      .filter((entry) => distinctAutomaticPorts && relationshipsShareEndpoint(conn, entry.conn)
+        && !hasAuthoredRouteGeometry(entry.conn) && !entry.conn.labelAt && !conn.labelAt)
+      .flatMap((entry) => entry.points.slice(1).map((segmentEnd, index) => ({
+        start: entry.points[index], end: segmentEnd,
+      })));
+    const gridMetrics = {};
+    planningMetrics.gridSearchCount += 1;
+    planningMetrics.avoidedSegmentCount += avoidedSegments.length;
+    const searched = shortestOrthogonalGridRoute({
+      start,
+      end,
+      points: [start, end],
+      obstacles: [...components.values(), ...reservedLabelObstacles(2)],
+      fromSide,
+      toSide,
+      clearance: 2,
+      maximumObstacleCount: 80,
+      endpointStubPx: 24,
+      maximumGridNodes: 4096,
+      avoidedSegments,
+      allowAvoidedCrossings: true,
+      minimumAvoidedOverlapPx: 8,
+      routeSeparationPx: 8,
+      minimumSegmentPx: interiorSegmentPx,
+      borderSegments: frameBorders,
+      bendPenaltyPx: 48,
+      metrics: gridMetrics,
+    });
+    planningMetrics.gridCandidateNodeCount += gridMetrics.candidateNodeCount || 0;
+    planningMetrics.gridUsableNodeCount += gridMetrics.usableNodeCount || 0;
+    planningMetrics.gridEdgeCount += gridMetrics.graphEdgeCount || 0;
+    planningMetrics.gridVisitedNodeCount += gridMetrics.visitedNodeCount || 0;
+    const clearsEndpoints = searched
+      ? routeClearsEndpointComponents(searched.points, from, to) : false;
+    const clearsComponents = searched
+      ? routeClearsComponents(conn, searched.points) : false;
+    const clearsRelationships = searched
+      ? !routeConflictsWithResolved(conn, searched.points, resolvedRoutes) : false;
+    const clearsSharedCorridors = searched
+      ? !routeOverlapsResolved(conn, searched.points, resolvedRoutes) : false;
+    const meetsFloors = searched ? routeMeetsCompositionFloors(searched.points) : false;
+    const accepted = Boolean(
+      searched && clearsEndpoints && clearsComponents && clearsSharedCorridors && meetsFloors,
+    );
+    planningMetrics.gridAttempts.push({
+      relationship: conn.id || `${conn.from}->${conn.to}`,
+      fromSide,
+      toSide,
+      inputAvoidedSegmentCount: avoidedSegments.length,
+      ...gridMetrics,
+      accepted,
+      ...(!accepted && searched ? {
+        rejectedBy: [
+          ...(!clearsEndpoints ? ['endpoint-components'] : []),
+          ...(!clearsComponents ? ['components'] : []),
+          ...(!clearsSharedCorridors ? ['shared-corridor'] : []),
+          ...(!meetsFloors ? ['composition-floors'] : []),
+        ],
+        candidatePoints: searched.points,
+      } : {}),
+    });
+    if (accepted) {
+      planningMetrics.gridRoutedCount += 1;
+      if (!clearsRelationships) planningMetrics.crossoverRoutedCount += 1;
+      return searched.points.slice(1, -1);
+    }
+
+    // Both bounded doglegs are blocked. Keep the best endpoint-safe route
+    // when one exists so the universal Clean Flow gate reports the actual
+    // obstacle; otherwise preserve the historical deterministic fallback
+    // and let the endpoint-direction gate explain the side mismatch.
+    planningMetrics.conflictFallbackCount += 1;
+    return fallback;
+  }
+
   function routeVia(conn, from, to, start, end, fromSide, toSide, resolvedRoutes = []) {
     if (conn.via) return conn.via;
     switch (conn.route || 'auto') {
@@ -368,22 +586,16 @@ export function createRouter(components, connections = [], {
         // Direct line unless the anchors are clearly orthogonal-friendly.
         const deltaX = Math.abs(start[0] - end[0]);
         const deltaY = Math.abs(start[1] - end[1]);
+        const honorSides = { fromSide, toSide };
         if (deltaX < 4 || deltaY < 4) {
           const direct = [start, end];
-          if (routeHonorsEndpointSides(direct, fromSide, toSide)
-              && routeClearsEndpointComponents(direct, from, to)
-              && routeClearsComponents(conn, direct)
-              && routeMeetsCompositionFloors(direct)
-              && !routeConflictsWithResolved(conn, direct, resolvedRoutes)) return [];
+          if (automaticRouteClears(conn, direct, from, to, resolvedRoutes, { honorSides })) {
+            return [];
+          }
         }
 
         const rhythmBridge = automaticPortRhythmBridge(start, end, fromSide, toSide, {
-          accept: (points) => (
-            routeClearsEndpointComponents(points, from, to)
-            && routeClearsComponents(conn, points)
-            && routeMeetsCompositionFloors(points)
-            && !routeConflictsWithResolved(conn, points, resolvedRoutes)
-          ),
+          accept: (points) => automaticRouteClears(conn, points, from, to, resolvedRoutes),
         });
         if (rhythmBridge) return rhythmBridge.slice(1, -1);
 
@@ -391,192 +603,54 @@ export function createRouter(components, connections = [], {
         // few pixels apart. A midpoint route would split that tiny difference
         // into two unreadable endpoint stubs, so take a bounded outside channel
         // when both anchors sit on parallel component sides.
-        const minimumStub = 8;
-        const fromVerticalSide = start[1] === from.y || start[1] === from.y + from.height;
-        const toVerticalSide = end[1] === to.y || end[1] === to.y + to.height;
-        if (fromVerticalSide && toVerticalSide && deltaX < minimumStub * 2) {
-          const outsideChannels = [
-            Math.max(start[0], end[0]) + minimumStub * 2,
-            Math.min(start[0], end[0]) - minimumStub * 2,
-          ];
-          for (const channelX of outsideChannels) {
-            const candidate = [[channelX, start[1]], [channelX, end[1]]];
-            const points = [start, ...candidate, end];
-            if (routeHonorsEndpointSides(points, fromSide, toSide)
-                && routeClearsComponents(conn, points)
-                && routeMeetsCompositionFloors(points)
-                && !routeConflictsWithResolved(conn, points, resolvedRoutes)) return candidate;
-          }
+        for (const candidate of outsideParallelChannelVias(start, end, from, to)) {
+          const points = [start, ...candidate, end];
+          if (automaticRouteClears(conn, points, from, to, resolvedRoutes, {
+            honorSides,
+            requireEndpointClearance: false,
+          })) return candidate;
         }
 
-        const fromHorizontalSide = start[0] === from.x || start[0] === from.x + from.width;
-        const toHorizontalSide = end[0] === to.x || end[0] === to.x + to.width;
-        if (fromHorizontalSide && toHorizontalSide && deltaY < minimumStub * 2) {
-          const outsideChannels = [
-            Math.max(start[1], end[1]) + minimumStub * 2,
-            Math.min(start[1], end[1]) - minimumStub * 2,
-          ];
-          for (const channelY of outsideChannels) {
-            const candidate = [[start[0], channelY], [end[0], channelY]];
-            const points = [start, ...candidate, end];
-            if (routeHonorsEndpointSides(points, fromSide, toSide)
-                && routeClearsComponents(conn, points)
-                && routeMeetsCompositionFloors(points)
-                && !routeConflictsWithResolved(conn, points, resolvedRoutes)) return candidate;
-          }
-        }
-
-        const midX = (start[0] + end[0]) / 2;
-        const horizontalFirst = [[midX, start[1]], [midX, end[1]]];
-        const midY = (start[1] + end[1]) / 2;
-        const verticalFirst = [[start[0], midY], [end[0], midY]];
-        const candidates = [horizontalFirst, verticalFirst];
-        const sideSafe = candidates.filter((candidate) => (
+        const { midX, midY, horizontalFirst, verticalFirst } = midpointDoglegVias(start, end);
+        const sideSafe = [horizontalFirst, verticalFirst].filter((candidate) => (
           routeHonorsEndpointSides([start, ...candidate, end], fromSide, toSide)
         ));
         const sideAware = sideAwareBridgeCandidates(start, end, fromSide, toSide);
-        const nearParallelPorts = (
-          ((fromSide === 'top' || fromSide === 'bottom')
-            && (toSide === 'top' || toSide === 'bottom')
-            && deltaX < minimumStub * 2)
-          || ((fromSide === 'left' || fromSide === 'right')
-            && (toSide === 'left' || toSide === 'right')
-            && deltaY < minimumStub * 2)
+        const ordered = orderAutomaticDoglegCandidates(
+          sideSafe,
+          sideAware,
+          nearParallelPortPair(fromSide, toSide, deltaX, deltaY),
         );
-        const ordered = [
-          ...(nearParallelPorts ? sideAware : sideSafe),
-          ...(nearParallelPorts ? sideSafe : sideAware),
-        ];
         for (const candidate of ordered) {
           const points = [start, ...candidate, end];
-          if (routeClearsEndpointComponents(points, from, to)
-              && routeClearsComponents(conn, points)
-              && routeMeetsCompositionFloors(points)
-              && !routeConflictsWithResolved(conn, points, resolvedRoutes)
-              && (!distinctAutomaticPorts || (!routeOverlapsResolved(conn, points, resolvedRoutes)
-                && !siblingCrossings(conn, points, resolvedRoutes)))) return candidate;
+          if (automaticRouteClears(conn, points, from, to, resolvedRoutes, {
+            requireDistinctCorridors: distinctAutomaticPorts,
+          })) return candidate;
         }
         // Siblings fanning out from one side all want the same midpoint
         // channel. Step outward through the corridor to a free parallel
         // channel before searching.
         if (distinctAutomaticPorts) {
-          const channels = (from, to, mid) => {
-            const [low, high] = [Math.min(from, to) + 24, Math.max(from, to) - 24];
-            const values = [];
-            for (let offset = 16; mid - offset >= low || mid + offset <= high; offset += 16) {
-              values.push(...[mid + offset, mid - offset].filter((value) => value >= low && value <= high));
-            }
-            return values;
-          };
-          for (const candidate of [
-            ...channels(start[0], end[0], midX).map((x) => [[x, start[1]], [x, end[1]]]),
-            ...channels(start[1], end[1], midY).map((y) => [[start[0], y], [end[0], y]]),
-          ]) {
+          for (const candidate of steppedCorridorChannelVias(start, end, midX, midY)) {
             const points = [start, ...candidate, end];
-            if (routeHonorsEndpointSides(points, fromSide, toSide)
-                && routeClearsEndpointComponents(points, from, to)
-                && routeClearsComponents(conn, points)
-                && routeMeetsCompositionFloors(points)
-                && !routeConflictsWithResolved(conn, points, resolvedRoutes)
-                && !routeOverlapsResolved(conn, points, resolvedRoutes)
-                && !siblingCrossings(conn, points, resolvedRoutes)) return candidate;
+            if (automaticRouteClears(conn, points, from, to, resolvedRoutes, {
+              honorSides,
+              requireDistinctCorridors: true,
+            })) return candidate;
           }
         }
 
-        // Two-bend doglegs are deliberately cheap, but a real architecture can
-        // place adjacent components on both of those corridors. Search a
-        // bounded obstacle grid before falling back to a route that the Clean
-        // Flow gate already knows violates the inferred endpoint directions.
-        // This keeps ordinary multi-bend avoidance renderer-owned instead of
-        // forcing the author to hand-place via points.
-        // Alternative endpoint pairs are cheap probes, not another grid-search
-        // budget. A legal short bridge often beats the first grid detour.
-        if (!allowGridSearch) return sideSafe[0] || sideAware[0] || horizontalFirst;
-        if (planningMetrics.gridSearchCount >= planningMetrics.maximumGridSearchCount) {
-          planningMetrics.gridBudgetExhaustedCount += 1;
-          planningMetrics.conflictFallbackCount += 1;
-          return sideSafe[0] || sideAware[0] || horizontalFirst;
-        }
-        // First-draft architecture graphs are not always planar at their
-        // authored node positions. The renderer gives automatic crossings a
-        // visible halo, so the grid owns opaque-node avoidance and rejects
-        // ambiguous shared corridors without forcing the model to hand-route
-        // a sprawling perimeter detour. Cheap candidates above still prefer a
-        // genuinely crossing-free path whenever one is available.
-        const avoidedSegments = resolvedRoutes
-          .filter((entry) => distinctAutomaticPorts && relationshipsShareEndpoint(conn, entry.conn)
-            && !hasAuthoredRouteGeometry(entry.conn) && !entry.conn.labelAt && !conn.labelAt)
-          .flatMap((entry) => entry.points.slice(1).map((end, index) => ({
-            start: entry.points[index], end,
-          })));
-        const gridMetrics = {};
-        planningMetrics.gridSearchCount += 1;
-        planningMetrics.avoidedSegmentCount += avoidedSegments.length;
-        const searched = shortestOrthogonalGridRoute({
+        return searchGridRouteVia(
+          conn,
+          from,
+          to,
           start,
           end,
-          points: [start, end],
-          obstacles: [...components.values(), ...reservedLabelObstacles(2)],
           fromSide,
           toSide,
-          clearance: 2,
-          maximumObstacleCount: 80,
-          endpointStubPx: 24,
-          maximumGridNodes: 4096,
-          avoidedSegments,
-          allowAvoidedCrossings: true,
-          minimumAvoidedOverlapPx: 8,
-          routeSeparationPx: 8,
-          minimumSegmentPx: interiorSegmentPx,
-          borderSegments: frameBorders,
-          bendPenaltyPx: 48,
-          metrics: gridMetrics,
-        });
-        planningMetrics.gridCandidateNodeCount += gridMetrics.candidateNodeCount || 0;
-        planningMetrics.gridUsableNodeCount += gridMetrics.usableNodeCount || 0;
-        planningMetrics.gridEdgeCount += gridMetrics.graphEdgeCount || 0;
-        planningMetrics.gridVisitedNodeCount += gridMetrics.visitedNodeCount || 0;
-        const clearsEndpoints = searched
-          ? routeClearsEndpointComponents(searched.points, from, to) : false;
-        const clearsComponents = searched
-          ? routeClearsComponents(conn, searched.points) : false;
-        const clearsRelationships = searched
-          ? !routeConflictsWithResolved(conn, searched.points, resolvedRoutes) : false;
-        const clearsSharedCorridors = searched
-          ? !routeOverlapsResolved(conn, searched.points, resolvedRoutes) : false;
-        const meetsFloors = searched ? routeMeetsCompositionFloors(searched.points) : false;
-        const accepted = Boolean(
-          searched && clearsEndpoints && clearsComponents && clearsSharedCorridors && meetsFloors,
+          resolvedRoutes,
+          sideSafe[0] || sideAware[0] || horizontalFirst,
         );
-        planningMetrics.gridAttempts.push({
-          relationship: conn.id || `${conn.from}->${conn.to}`,
-          fromSide,
-          toSide,
-          inputAvoidedSegmentCount: avoidedSegments.length,
-          ...gridMetrics,
-          accepted,
-          ...(!accepted && searched ? {
-            rejectedBy: [
-              ...(!clearsEndpoints ? ['endpoint-components'] : []),
-              ...(!clearsComponents ? ['components'] : []),
-              ...(!clearsSharedCorridors ? ['shared-corridor'] : []),
-              ...(!meetsFloors ? ['composition-floors'] : []),
-            ],
-            candidatePoints: searched.points,
-          } : {}),
-        });
-        if (accepted) {
-          planningMetrics.gridRoutedCount += 1;
-          if (!clearsRelationships) planningMetrics.crossoverRoutedCount += 1;
-          return searched.points.slice(1, -1);
-        }
-
-        // Both bounded doglegs are blocked. Keep the best endpoint-safe route
-        // when one exists so the universal Clean Flow gate reports the actual
-        // obstacle; otherwise preserve the historical deterministic fallback
-        // and let the endpoint-direction gate explain the side mismatch.
-        planningMetrics.conflictFallbackCount += 1;
-        return sideSafe[0] || sideAware[0] || horizontalFirst;
       }
     }
   }
@@ -934,17 +1008,9 @@ export function createRouter(components, connections = [], {
           paired.add(second.conn);
           const firstSides = inferredConnectionSides(conn);
           const secondSides = inferredConnectionSides(second.conn);
-          const horizontal = firstSides.fromSide === 'right' && firstSides.toSide === 'left'
-            && secondSides.fromSide === 'left' && secondSides.toSide === 'right';
-          const horizontalReverse = firstSides.fromSide === 'left' && firstSides.toSide === 'right'
-            && secondSides.fromSide === 'right' && secondSides.toSide === 'left';
-          const vertical = firstSides.fromSide === 'bottom' && firstSides.toSide === 'top'
-            && secondSides.fromSide === 'top' && secondSides.toSide === 'bottom';
-          const verticalReverse = firstSides.fromSide === 'top' && firstSides.toSide === 'bottom'
-            && secondSides.fromSide === 'bottom' && secondSides.toSide === 'top';
-          if (!horizontal && !horizontalReverse && !vertical && !verticalReverse) continue;
+          const axis = facingReciprocalAxis(firstSides, secondSides);
+          if (axis === null) continue;
           if (first.points.length <= 2 && second.points.length <= 2) continue;
-          const axis = horizontal || horizontalReverse ? 1 : 0;
           const others = resolvedRoutes.filter((entry) => entry !== first && entry !== second);
           const firstGeometry = connectionGeometry(conn, firstSides);
           const secondGeometry = connectionGeometry(second.conn, secondSides);
@@ -953,14 +1019,6 @@ export function createRouter(components, connections = [], {
           let improved = false;
           reservedLabels = reservedLabels.filter((entry) => entry.conn !== conn && entry.conn !== second.conn);
           try {
-            const lanes = (geometry) => [...new Set([geometry.start[axis], geometry.end[axis]])];
-            const direct = (geometry, lane) => {
-              const start = [...geometry.start];
-              const end = [...geometry.end];
-              start[axis] = lane;
-              end[axis] = lane;
-              return { points: [start, end], d: roundedPath([start, end], 8) };
-            };
             const endpointSlotsClear = (candidateRoutes) => {
               const entries = [...others, ...candidateRoutes];
               for (const candidate of candidateRoutes) {
@@ -998,11 +1056,11 @@ export function createRouter(components, connections = [], {
             let best = null;
             let bestCost = readabilityCost(conn, first, [...others, second])
               + readabilityCost(second.conn, second, [...others, first]);
-            for (const firstLane of lanes(firstGeometry)) {
-              for (const secondLane of lanes(secondGeometry)) {
+            for (const firstLane of laneValuesForGeometry(firstGeometry, axis)) {
+              for (const secondLane of laneValuesForGeometry(secondGeometry, axis)) {
                 planningMetrics.reciprocalCandidateCount += 1;
-                const firstRoute = { conn, ...direct(firstGeometry, firstLane) };
-                const secondRoute = { conn: second.conn, ...direct(secondGeometry, secondLane) };
+                const firstRoute = { conn, ...directLaneRoute(firstGeometry, firstLane, axis) };
+                const secondRoute = { conn: second.conn, ...directLaneRoute(secondGeometry, secondLane, axis) };
                 const candidates = [firstRoute, secondRoute];
                 if (!candidates.every((entry) => entry.points.every(withinScene))) continue;
                 if (!endpointSlotsClear(candidates)) continue;
