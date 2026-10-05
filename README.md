@@ -4,6 +4,8 @@ Agent skills for Claude Code, OpenCode, Codex, Gemini, Cursor, and other agents
 used in my projects. They cover writing in Brazilian Portuguese, publication
 hygiene, the grill → spec → tickets → PR workflow, and architecture diagrams.
 
+Criado por [@pedrosatin](https://github.com/pedrosatin)
+
 Each folder in `skills/` is self-contained (`SKILL.md` and supporting files).
 
 ## Language conventions
@@ -56,3 +58,7 @@ Vendored skills and tools (see `ATTRIBUTION.md`):
 - `archify`: interactive HTML/SVG architecture diagrams, from tt-a1i.
 - `grilling`, `to-spec`, `to-tickets`, `research`, `teach`: Matt Pocock's planning and learning workflow.
 - `humanizer`: prose editing, from Siqi Chen.
+
+## Contributing
+
+To contribute a skill or report a bug, open an issue at https://github.com/pedrosatin/skills/issues with a description of the proposed change or the observed behavior.
