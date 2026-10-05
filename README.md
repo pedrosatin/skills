@@ -61,4 +61,5 @@ Vendored skills and tools (see `ATTRIBUTION.md`):
 
 ## Contributing
 
-To contribute a skill or report a bug, open an issue at https://github.com/pedrosatin/skills/issues with a description of the proposed change or the observed behavior.
+To contribute a skill or report a bug, [open an issue](https://github.com/pedrosatin/skills/issues)
+with a description of the proposed change or the observed behavior.
