@@ -32,13 +32,16 @@ git clone https://github.com/pedrosatin/skills.git
 ```
 
 `link.sh` creates `~/.agents/skills/<name>` pointing to each folder under
-`skills/`. It skips existing directories and links pointing outside the repo,
-with a warning. The script is idempotent and removes broken links pointing to
-the repo or `~/.agents/skills`, including those in the Claude Code, Codex, and
-Gemini skill roots. Run it again after each `git pull`.
+`skills/`. In interactive sessions, it detects other installed harnesses
+(Claude Code, Codex, Gemini) and prompts you to link them as well.
+Use `./link.sh --all` to link all detected harnesses without prompting, or
+`./link.sh -y` for non-interactive default mode.
+It skips existing directories and links pointing outside the repo, with a
+warning. The script is idempotent and removes broken links pointing to the repo
+or `~/.agents/skills`. Run it again after each `git pull`.
 
 OpenCode reads `~/.agents/skills` directly. Claude Code, Codex, and Gemini read
-through symlinks (`ln -s ../../.agents/skills/<name> ~/.claude/skills/<name>`).
+from their respective skill roots via the created symlinks.
 
 ## Contents
 
