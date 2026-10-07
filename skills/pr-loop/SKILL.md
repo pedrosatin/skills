@@ -14,7 +14,7 @@ The main agent alone performs pushes, rebases, force pushes, merges, and GitHub 
 1. Merging requires authorization. Requesting the loop authorizes work through opening a PR. Each merge requires authorization in the conversation unless the operator approved the entire batch beforehand, for example "merge everything", "mescla tudo", or "vai até o fim".
 2. Commits, PRs, and issues must have no AI attribution: no Co-authored-by, "Generated with", or model attribution. Author and committer are always the human operator; never use --author or GIT_AUTHOR/GIT_COMMITTER variables.
 3. Tests and typecheck must pass before each commit. Discover the commands in step 0. If a package has no tests, the implementer adds them following the repo's conventions.
-4. /tmp is volatile. A worktree may disappear between sessions; its branch must be on origin before the iteration is considered finished. Resume with `git worktree add -b <branch> /tmp/opencode/<slug> origin/<branch>`, or start from origin/main if there is no remote branch.
+4. Worktrees ficam em disco (`~/.cache/worktrees`). Um worktree pode ser retomado entre sessões; sua branch deve estar no origin antes de considerar a iteração finalizada. Retome com `git worktree add -b <branch> ~/.cache/worktrees/<slug> origin/<branch>`, ou inicie de origin/main caso não exista branch remota.
 5. Use `gh-axi` for GitHub. Read TOON output without piping it to jq.
 6. Follow the target project's language conventions for commits, PRs, docs, comments, and UI strings. Use the user's language for conversation. For PT-BR prose, apply `../unslop-br/SKILL.md`. For English prose, use an installed English writing skill such as `humanizer`; if none is available, apply the prose rules in step 4. Do not apply Portuguese vocabulary rules to other languages.
 7. For checks through rtk, use `pnpm -C <pkg> <script>`. rtk does not yet forward `--filter` to `tsc`; `pnpm --filter <pkg> <script>` can run the compiler at the monorepo root, print help, and exit 1 as a false typecheck failure. A subagent interrupted by a usage limit or timeout may leave completed work uncommitted: inspect `git status` and `git diff` before starting over.
@@ -26,7 +26,7 @@ If usage limits, missing subagent tools, or a persistent subagent failure preven
 ## Step 0, prepare the item
 
 - Take the items from the repo roadmap (in todo-jarvis, `docs/05-roadmap.md` and `docs/06-questoes-abertas.md`) or the operator's list. Confirm the list and order before the first iteration.
-- Run `git fetch origin` and create a clean worktree with `git worktree add -b feat/<slug> /tmp/opencode/<slug> origin/main`. The /tmp/opencode directory is preapproved. If a worktree remains from a previous iteration, enter it and inspect `git status` and `git log --oneline -3`.
+- Run `git fetch origin` e crie um worktree limpo com `git worktree add -b feat/<slug> ~/.cache/worktrees/<slug> origin/main`. O diretório `~/.cache/worktrees` fica no disco (não consome tmpfs/RAM e permite hardlinks do pnpm store). Se um worktree remanescente existir de iteração anterior, entre nele e inspecione `git status` e `git log --oneline -3`.
 - Discover the validation commands in each affected package.json (test, typecheck, lint). Include them in all three subagent prompts.
 - Define the scope, exclusions, and completion criteria in a few sentences. An open scope makes the PR larger and harder to review.
 - Establish the language for each output from the project's instructions and existing files or commit history. Pass that choice to all three subagents.
