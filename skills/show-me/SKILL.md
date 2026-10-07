@@ -44,16 +44,24 @@ src/
 └── transport/      # sends API requests
 ```
 
-- Show component interaction, control flow, or data flow with Mermaid:
+- Show component interaction, control flow, or data flow with **Unicode Box-Drawing / ASCII** (avoid raw ```mermaid blocks in terminal CLIs, as terminal emulators do not render Mermaid):
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant UI
-    participant Daemon
-    User->>UI: choose command
-    UI->>Daemon: send expanded prompt
-    Daemon-->>UI: stream result
+Sequence flow:
+```text
+User                      UI                     Daemon
+ │                         │                        │
+ │── choose command ──────►│                        │
+ │                         │── send prompt ────────►│
+ │                         │◄─ stream result ───────│
+```
+
+Or component box flow:
+```text
+┌──────────┐     command      ┌──────────┐     prompt      ┌──────────┐
+│   User   │ ───────────────► │    UI    │ ──────────────► │  Daemon  │
+└──────────┘                  └──────────┘                 └────┬─────┘
+                                   ▲                            │
+                                   └───────── stream result ────┘
 ```
 
 - Use `diff` when the point is what changes and the surrounding shape already exists. Match the diff shape to the topic.
@@ -126,8 +134,8 @@ xdg-open .scratch/show-me/show-me-{description}.html
 
 ### Guidance
 
-Place each visual next to the short text it supports. Keep only the calls, files, props, states, and boundaries needed to answer the user's current question or the options to resolve the current discussion point.
-
-You may use one of these, you may use several, it is unlikely you will use all of them. Use your judgement and don't overwhelm the user.
-
-Respond in the user's conversational language (e.g. Brazilian Portuguese).
+- **NUNCA emita blocos ```mermaid crus no chat:** O operador trabalha em terminal CLI (Claude Code, agy, Alacritty, Foot) que não compila Mermaid em SVG. Use sempre diagramas em texto puro (Unicode Box-Drawing, árvores ASCII, tabelas).
+- Place each visual next to the short text it supports. Keep only the calls, files, props, states, and boundaries needed to answer the user's current question or the options to resolve the current discussion point.
+- Se a visualização for densa demais para caber em texto no terminal, gere um HTML efêmero em `.scratch/show-me/` e abra com `xdg-open` (ou use `/archify` para arquiteturas formais).
+- You may use one of these, you may use several, it is unlikely you will use all of them. Use your judgement and don't overwhelm the user.
+- Respond in the user's conversational language (e.g. Brazilian Portuguese).
