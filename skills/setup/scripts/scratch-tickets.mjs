@@ -12,8 +12,10 @@ export const COLUMNS = ['backlog', 'blocked', 'ready-for-agent', 'in-progress', 
 const DONE_STATUSES = ['resolved', 'done', 'closed'];
 const IN_PROGRESS_STATUSES = ['claimed', 'in-progress'];
 const BACKLOG_STATUSES = ['wontfix', 'needs-triage', 'backlog', 'needs-info'];
-// A blocker only counts as cleared when its ticket is in one of these statuses.
-const BLOCKER_RESOLVED_STATUSES = ['resolved', 'done'];
+// A blocker counts as cleared when its ticket is in the done column.
+const BLOCKER_RESOLVED_STATUSES = DONE_STATUSES;
+// `Blocked by` values that mean "no blocker": None…, Nenhum…, N/A, or only dashes.
+const NO_BLOCKER = /^(?:none|nenhum|n\/a)\b|^[-—–\s]*$/i;
 
 /** Column for a ticket given its raw status and whether any blocker is still open. */
 export function columnFor(rawStatus, hasUnresolvedBlocker = false) {
@@ -57,8 +59,10 @@ export function parseTicketFile(filePath, featureName, relativeTo = path.dirname
   const blockedMatch = content.match(/(?:\*\*Blocked by:\*\*|Blocked by:)\s*([^\n]+)/i);
   if (blockedMatch) {
     const rawBlocked = blockedMatch[1].trim();
-    if (!rawBlocked.toLowerCase().startsWith('none')) {
-      blockedBy = rawBlocked.split(/[,\s]+/).map(s => s.trim().replace(/^#/, '')).filter(Boolean);
+    if (!NO_BLOCKER.test(rawBlocked)) {
+      blockedBy = rawBlocked.split(/[,\s]+/)
+        .map(s => s.trim().replace(/^#/, ''))
+        .filter(s => s && !/^[-—–]+$/.test(s));
     }
   }
 
@@ -119,8 +123,8 @@ export function readScratchTickets(scratchDir, relativeTo = scratchDir) {
 
 /**
  * Resolve blockers and set `blockersDetail` and `computedColumn` on every ticket (in place).
- * Blocker ids are looked up by bare id first, then `<feature>/<id>`; when ids repeat,
- * the later ticket in the array wins. Returns the same array.
+ * Blocker ids are looked up in the ticket's own feature first (`<feature>/<id>`), then
+ * by bare id, which also accepts an explicit `<feature>/<id>`. Returns the same array.
  */
 export function assignColumns(tickets) {
   const statusById = new Map();
@@ -132,7 +136,7 @@ export function assignColumns(tickets) {
     const blockersDetail = [];
     let hasUnresolvedBlocker = false;
     for (const bId of t.blockedBy) {
-      const bStatus = statusById.get(bId) || statusById.get(`${t.feature}/${bId}`) || 'unknown';
+      const bStatus = statusById.get(`${t.feature}/${bId}`) || statusById.get(bId) || 'unknown';
       const resolved = BLOCKER_RESOLVED_STATUSES.includes(bStatus);
       blockersDetail.push({ id: bId, status: bStatus, resolved });
       if (!resolved) hasUnresolvedBlocker = true;
