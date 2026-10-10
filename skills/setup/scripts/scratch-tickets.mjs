@@ -1,13 +1,9 @@
-// Shared reader for a project's local `.scratch` tracker and the rule that
-// places each ticket in a hub column. Imported by generate-hub.mjs and meant
-// for other generators (e.g. a multi-project portfolio). No side effects on import.
+// Reads a project's local `.scratch` tracker and assigns each ticket a hub column.
+// Used by generate-hub.mjs. No side effects on import.
 import fs from 'node:fs';
 import path from 'node:path';
 
 export const DEFAULT_STATUS = 'ready-for-agent';
-
-// Column ids, in board order.
-export const COLUMNS = ['backlog', 'blocked', 'ready-for-agent', 'in-progress', 'done'];
 
 const DONE_STATUSES = ['resolved', 'done', 'closed'];
 const IN_PROGRESS_STATUSES = ['claimed', 'in-progress'];
@@ -85,18 +81,6 @@ export function parseTicketFile(filePath, featureName, relativeTo = path.dirname
   };
 }
 
-/** Direct subdirectories of a scratch dir (feature slugs), sorted. */
-export function listFeatures(scratchDir) {
-  try {
-    return fs.readdirSync(scratchDir, { withFileTypes: true })
-      .filter(e => e.isDirectory())
-      .map(e => e.name)
-      .sort();
-  } catch {
-    return [];
-  }
-}
-
 /** Tickets from `<scratchDir>/<feature>/issues/*.md`, in directory order. Columns not yet computed. */
 export function readScratchTickets(scratchDir, relativeTo = scratchDir) {
   const tickets = [];
@@ -141,31 +125,4 @@ export function assignColumns(tickets) {
     t.computedColumn = columnFor(t.rawStatus, hasUnresolvedBlocker);
   }
   return tickets;
-}
-
-/** Ticket count per column, keyed by column id. */
-export function countByColumn(tickets) {
-  const counts = Object.fromEntries(COLUMNS.map(c => [c, 0]));
-  for (const t of tickets) counts[t.computedColumn] = (counts[t.computedColumn] || 0) + 1;
-  return counts;
-}
-
-/**
- * Read `<projectDir>/.scratch`: features, tickets with columns assigned, and counts.
- * Tickets are sorted by feature, then numeric id. `relPath` is relative to projectDir.
- */
-export function readProjectScratch(projectDir) {
-  const scratchDir = path.join(projectDir, '.scratch');
-  const tickets = assignColumns(readScratchTickets(scratchDir, projectDir));
-  tickets.sort((a, b) =>
-    a.feature.localeCompare(b.feature)
-    || (parseInt(a.id, 10) - parseInt(b.id, 10))
-    || a.id.localeCompare(b.id));
-  return {
-    scratchDir,
-    exists: fs.existsSync(scratchDir),
-    features: listFeatures(scratchDir),
-    tickets,
-    counts: countByColumn(tickets),
-  };
 }
