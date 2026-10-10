@@ -1157,8 +1157,9 @@ const html = `<!DOCTYPE html>
       position: fixed;
       top: 0;
       right: 0;
-      width: min(480px, 100vw);
-      max-width: 520px;
+      /* Largo o bastante para diagramas de 72 colunas nos blocos <pre>. */
+      width: min(760px, 100vw);
+      max-width: 760px;
       min-width: min(440px, 100vw);
       height: 100vh;
       height: 100dvh;
@@ -1336,8 +1337,9 @@ const html = `<!DOCTYPE html>
     }
     .md-body pre {
       max-width: 100%;
-      line-height: 1.45;
+      line-height: 1.25;
       white-space: pre;
+      font-variant-ligatures: none;
     }
     .md-body pre code {
       background: none;
