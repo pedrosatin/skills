@@ -1817,6 +1817,11 @@ if (useFixture) {
   if (isSafeHref('javascript:alert(1)') || isSafeHref('data:text/html,x')) {
     smokeFailures.push('javascript:/data: hrefs should be rejected');
   }
+  // Fixture tickets: 01, 03 (`—`), 04 (blocked by closed 05) ready; 02 blocked; 05 done
+  const ticketSummary = `${metrics.totalTickets} total, ${metrics.ready} ready, ${metrics.blocked} blocked, ${metrics.done} done`;
+  if (ticketSummary !== '5 total, 3 ready, 1 blocked, 1 done') {
+    smokeFailures.push(`fixture tickets expected 5 total, 3 ready, 1 blocked, 1 done; got ${ticketSummary}`);
+  }
   if (smokeFailures.length) {
     console.error('[Project Hub] Smoke --fixture FAILED:');
     for (const f of smokeFailures) console.error(`  - ${f}`);
