@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { assignColumns, parseTicketFile, readScratchTickets } from './scratch-tickets.mjs';
 
 const args = process.argv.slice(2);
 const flags = new Set(args.filter(a => a.startsWith('--')));
@@ -460,90 +461,8 @@ if (fs.existsSync(docsSpecsDir)) {
   } catch {}
 }
 
-// 6. Discover Tickets
-const tickets = [];
-
-function parseTicketFile(filePath, featureName) {
-  try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    const filename = path.basename(filePath, '.md');
-    
-    // Extract ID (e.g. 01 from 01-setup)
-    const idMatch = filename.match(/^(\d+)/);
-    const id = idMatch ? idMatch[1] : filename;
-
-    // Extract Title
-    let title = filename;
-    const titleLine = content.split('\n').find(l => l.startsWith('# '));
-    if (titleLine) {
-      title = titleLine.replace(/^#\s+(\d+:)?\s*/, '').trim();
-    }
-
-    // Extract Status
-    let status = 'ready-for-agent';
-    const statusMatch = content.match(/(?:\*\*Status:\*\*|Status:)\s*([a-zA-Z0-9_-]+)/i);
-    if (statusMatch) {
-      status = statusMatch[1].trim().toLowerCase();
-    }
-
-    // Extract Blocked By
-    let blockedBy = [];
-    const blockedMatch = content.match(/(?:\*\*Blocked by:\*\*|Blocked by:)\s*([^\n]+)/i);
-    if (blockedMatch) {
-      const rawBlocked = blockedMatch[1].trim();
-      if (!rawBlocked.toLowerCase().startsWith('none')) {
-        blockedBy = rawBlocked.split(/[,\s]+/).map(s => s.trim().replace(/^#/, '')).filter(Boolean);
-      }
-    }
-
-    // Extract Acceptance Criteria
-    const criteria = [];
-    const critMatches = content.matchAll(/^-\s*\[([ xX])\]\s*(.+)$/gm);
-    for (const m of critMatches) {
-      criteria.push({
-        done: m[1].toLowerCase() === 'x',
-        text: m[2].trim(),
-      });
-    }
-
-    // Extract What to build
-    let whatToBuild = '';
-    const buildMatch = content.match(/(?:\*\*What to build:\*\*|What to build:)\s*([^\n]+)/i);
-    if (buildMatch) whatToBuild = buildMatch[1].trim();
-
-    tickets.push({
-      id,
-      slug: filename,
-      feature: featureName,
-      title,
-      rawStatus: status,
-      blockedBy,
-      criteria,
-      whatToBuild,
-      relPath: path.relative(repoRoot, filePath),
-      content,
-    });
-  } catch {}
-}
-
-if (fs.existsSync(scratchDir)) {
-  try {
-    const entries = fs.readdirSync(scratchDir, { withFileTypes: true });
-    for (const e of entries) {
-      if (e.isDirectory()) {
-        const issuesDir = path.join(scratchDir, e.name, 'issues');
-        if (fs.existsSync(issuesDir)) {
-          const files = fs.readdirSync(issuesDir);
-          for (const f of files) {
-            if (f.endsWith('.md')) {
-              parseTicketFile(path.join(issuesDir, f), e.name);
-            }
-          }
-        }
-      }
-    }
-  } catch {}
-}
+// 6. Discover Tickets (parse and column rule live in scratch-tickets.mjs)
+const tickets = readScratchTickets(scratchDir, repoRoot);
 
 const docsTicketsDir = path.join(repoRoot, 'docs', 'tickets');
 if (fs.existsSync(docsTicketsDir)) {
@@ -551,48 +470,15 @@ if (fs.existsSync(docsTicketsDir)) {
     const files = fs.readdirSync(docsTicketsDir);
     for (const f of files) {
       if (f.endsWith('.md')) {
-        parseTicketFile(path.join(docsTicketsDir, f), 'docs');
+        const t = parseTicketFile(path.join(docsTicketsDir, f), 'docs', repoRoot);
+        if (t) tickets.push(t);
       }
     }
   } catch {}
 }
 
 // 7. Dynamic Blocked Evaluation
-// Build ticket index by ID and by feature+ID
-const ticketStatusMap = new Map();
-for (const t of tickets) {
-  ticketStatusMap.set(t.id, t.rawStatus);
-  ticketStatusMap.set(`${t.feature}/${t.id}`, t.rawStatus);
-}
-
-for (const t of tickets) {
-  // Check if blockers are resolved
-  const blockersDetail = [];
-  let hasUnresolvedBlocker = false;
-
-  for (const bId of t.blockedBy) {
-    const bStatus = ticketStatusMap.get(bId) || ticketStatusMap.get(`${t.feature}/${bId}`) || 'unknown';
-    const isResolved = bStatus === 'resolved' || bStatus === 'done';
-    blockersDetail.push({ id: bId, status: bStatus, resolved: isResolved });
-    if (!isResolved) hasUnresolvedBlocker = true;
-  }
-
-  t.blockersDetail = blockersDetail;
-
-  // Compute column:
-  // Columns: 'backlog', 'blocked', 'ready-for-agent', 'in-progress', 'done'
-  if (['resolved', 'done', 'closed'].includes(t.rawStatus)) {
-    t.computedColumn = 'done';
-  } else if (['claimed', 'in-progress'].includes(t.rawStatus)) {
-    t.computedColumn = 'in-progress';
-  } else if (['wontfix', 'needs-triage', 'backlog', 'needs-info'].includes(t.rawStatus)) {
-    t.computedColumn = 'backlog';
-  } else if (t.rawStatus === 'blocked' || hasUnresolvedBlocker) {
-    t.computedColumn = 'blocked';
-  } else {
-    t.computedColumn = 'ready-for-agent';
-  }
-}
+assignColumns(tickets);
 
 // Sort tickets by ID
 tickets.sort((a, b) => {
