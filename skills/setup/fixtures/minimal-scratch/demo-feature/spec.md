@@ -13,7 +13,7 @@ that exercise headings, lists, emphasis, and issue dependencies.
 ## Scope
 
 1. As an operator, I want to see the spec rendered with document typography.
-2. As an operator, I want one ready ticket and one blocked ticket on the Kanban board.
+2. As an operator, I want ready, blocked, and done tickets on the Kanban board.
 
 ### Details
 
