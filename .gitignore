@@ -6,3 +6,6 @@ node_modules/
 
 graphify-out/
 skills/setup/fixtures/hub-fixture.html
+skills/setup/fixtures/portfolio-fixture.html
+# Portfolio fixture: its synthetic .scratch trees are test data and must be versioned
+!skills/setup/fixtures/portfolio-scratch/**/.scratch/
