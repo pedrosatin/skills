@@ -8,10 +8,31 @@ export const DEFAULT_STATUS = 'ready-for-agent';
 const DONE_STATUSES = ['resolved', 'done', 'closed'];
 const IN_PROGRESS_STATUSES = ['claimed', 'in-progress'];
 const BACKLOG_STATUSES = ['wontfix', 'needs-triage', 'backlog', 'needs-info'];
-// A blocker counts as cleared when its ticket is in the done column.
-const BLOCKER_RESOLVED_STATUSES = DONE_STATUSES;
-// `Blocked by` values that mean "no blocker": None…, Nenhum…, N/A, or only dashes.
-const NO_BLOCKER = /^(?:none|nenhum|n\/a)\b|^[-—–\s]*$/i;
+// `Blocked by` values that mean "no blocker": none, nenhum(a), n/a, empty, or only dashes.
+const NO_BLOCKER = /^(?:none|nenhuma?|n\/a)\b|^[-—–\s]*$/i;
+// A blocker reference: `01`, `3`, `feat-a/02` (after stripping a leading `#`).
+const BLOCKER_ID = /^(?:[\w-]+\/)?\d+[\w.-]*$/;
+// Words joining ids inside one comma segment (`01 e 02`, `01 and 02`, `01 & 02`).
+const BLOCKER_CONNECTOR = /^(?:e|and|&)$/i;
+
+/**
+ * Blocker ids from a `Blocked by` value. Split on commas; in each segment, take
+ * leading tokens while they are ids or connectors and stop at the first other
+ * token, so free text after the ids (`01 — title`, `#01 (setup)`) is ignored.
+ */
+function parseBlockedBy(rawBlocked) {
+  if (NO_BLOCKER.test(rawBlocked)) return [];
+  const ids = [];
+  for (const segment of rawBlocked.split(',')) {
+    for (const token of segment.trim().split(/\s+/)) {
+      if (BLOCKER_CONNECTOR.test(token)) continue;
+      const id = token.replace(/^#/, '');
+      if (!BLOCKER_ID.test(id)) break;
+      ids.push(id);
+    }
+  }
+  return ids;
+}
 
 /** Column for a ticket given its raw status and whether any blocker is still open. */
 export function columnFor(rawStatus, hasUnresolvedBlocker = false) {
@@ -51,16 +72,9 @@ export function parseTicketFile(filePath, featureName, relativeTo = path.dirname
     status = statusMatch[1].trim().toLowerCase();
   }
 
-  let blockedBy = [];
-  const blockedMatch = content.match(/(?:\*\*Blocked by:\*\*|Blocked by:)\s*([^\n]+)/i);
-  if (blockedMatch) {
-    const rawBlocked = blockedMatch[1].trim();
-    if (!NO_BLOCKER.test(rawBlocked)) {
-      blockedBy = rawBlocked.split(/[,\s]+/)
-        .map(s => s.trim().replace(/^#/, ''))
-        .filter(s => s && !/^[-—–]+$/.test(s));
-    }
-  }
+  // `[ \t]*` keeps an empty `Blocked by:` from capturing the next line.
+  const blockedMatch = content.match(/(?:\*\*Blocked by:\*\*|Blocked by:)[ \t]*([^\n]*)/i);
+  const blockedBy = blockedMatch ? parseBlockedBy(blockedMatch[1].trim()) : [];
 
   const criteria = [];
   for (const m of content.matchAll(/^-\s*\[([ xX])\]\s*(.+)$/gm)) {
@@ -107,21 +121,33 @@ export function readScratchTickets(scratchDir, relativeTo = scratchDir) {
 
 /**
  * Resolve blockers and set `blockersDetail` and `computedColumn` on every ticket (in place).
- * Blocker ids are looked up in the ticket's own feature first (`<feature>/<id>`), then
- * by bare id, which also accepts an explicit `<feature>/<id>`. Returns the same array.
+ * A blocker id is looked up in the ticket's own feature first (`<feature>/<id>`), then as
+ * an explicit `<feature>/<id>`, then as a bare id in another feature only when exactly one
+ * feature has it; a bare id found in several features gets status `ambiguous`, and one
+ * found nowhere gets `unknown` (both keep the ticket blocked). Returns the same array.
  */
 export function assignColumns(tickets) {
-  const statusById = new Map();
+  const statusByKey = new Map();
+  const statusesByBareId = new Map();
   for (const t of tickets) {
-    statusById.set(t.id, t.rawStatus);
-    statusById.set(`${t.feature}/${t.id}`, t.rawStatus);
+    statusByKey.set(`${t.feature}/${t.id}`, t.rawStatus);
+    if (!statusesByBareId.has(t.id)) statusesByBareId.set(t.id, []);
+    statusesByBareId.get(t.id).push(t.rawStatus);
   }
+  const lookup = (feature, bId) => {
+    const own = statusByKey.get(`${feature}/${bId}`) ?? statusByKey.get(bId);
+    if (own !== undefined) return own;
+    const matches = statusesByBareId.get(bId) || [];
+    if (matches.length === 1) return matches[0];
+    return matches.length > 1 ? 'ambiguous' : 'unknown';
+  };
   for (const t of tickets) {
     const blockersDetail = [];
     let hasUnresolvedBlocker = false;
     for (const bId of t.blockedBy) {
-      const bStatus = statusById.get(`${t.feature}/${bId}`) || statusById.get(bId) || 'unknown';
-      const resolved = BLOCKER_RESOLVED_STATUSES.includes(bStatus);
+      const bStatus = lookup(t.feature, bId);
+      // A blocker counts as cleared when its ticket is in the done column.
+      const resolved = DONE_STATUSES.includes(bStatus);
       blockersDetail.push({ id: bId, status: bStatus, resolved });
       if (!resolved) hasUnresolvedBlocker = true;
     }
