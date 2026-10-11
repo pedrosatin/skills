@@ -1,0 +1,10 @@
+{
+  "name": "clean-crap",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "bin": { "clean-crap": "scripts/clean-crap.mjs" },
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "typescript": "5.9.3" }
+}

@@ -51,6 +51,7 @@ Original skills:
 - `publication-hygiene`: checks commits and PRs for agent provenance before publication.
 - `babysit-prs`: reviews and merges open PRs.
 - `pr-loop`: delivers backlog items with implementation, review, and corrections by subagents.
+- `clean-crap`: gates delivery on a CRAP threshold (cyclomatic complexity joined with LCOV coverage) via a bundled JS/TS CLI.
 - `validate-agent-config`: validates instruction entry points and skill configuration consistency.
 - `setup`: initializes local specs, tickets, and the HTML Project Hub.
 - `board`: opens `.scratch/index.html` and points to `/setup` when the board is missing.
