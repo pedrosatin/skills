@@ -1,4 +1,6 @@
-.scratch/
+!/.scratch/
+/.scratch/*
+!/.scratch/STATUS.md
 .worktrees/
 node_modules/
 *.log
