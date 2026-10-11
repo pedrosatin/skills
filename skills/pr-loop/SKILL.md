@@ -1,11 +1,11 @@
 ---
 name: pr-loop
-description: "Deliver backlog items one by one with subagents (implement, review, correct), then open the PR and merge with authorization. Use only when asked via '/pr-loop', 'run the delivery loop', 'roda o loop de entrega', 'fluxo completo com subagents', or 'trabalha a lista do roadmap com review e correção'. Not for a standalone PR or implementation request."
+description: "Deliver backlog items one by one with subagents (implement, clean, review, correct), then open the PR and merge with authorization. Use only when asked via '/pr-loop', 'run the delivery loop', 'roda o loop de entrega', 'fluxo completo com subagents', or 'trabalha a lista do roadmap com review e correção'. Not for a standalone PR or implementation request."
 ---
 
 # pr-loop
 
-Deliver one backlog item per iteration through preparation, implementation by a subagent, code and prose review by a second subagent, corrections by a third subagent, and Git publication and merge by the main agent. Each step depends on the previous one, so the three subagents run sequentially.
+Deliver one backlog item per iteration through preparation, implementation by a subagent, the clean-crap complexity-and-coverage gate, code and prose review by a second subagent, corrections by a third subagent, and Git publication and merge by the main agent. Each step depends on the previous one, so the subagents run sequentially. The order is implement → cleaner → review → correct → publish.
 
 The main agent alone performs pushes, rebases, force pushes, merges, and GitHub operations. Subagents write code and create local commits. The main agent has the full conversation and the operator's authorization for external actions.
 
@@ -16,20 +16,20 @@ The main agent alone performs pushes, rebases, force pushes, merges, and GitHub 
 3. Tests and typecheck must pass before each commit. Discover the commands in step 0. If a package has no tests, the implementer adds them following the repo's conventions.
 4. Worktrees ficam em disco (`~/.cache/worktrees`). Um worktree pode ser retomado entre sessões; sua branch deve estar no origin antes de considerar a iteração finalizada. Retome com `git worktree add -b <branch> ~/.cache/worktrees/<slug> origin/<branch>`, ou inicie de origin/main caso não exista branch remota.
 5. Use `gh-axi` for GitHub. Read TOON output without piping it to jq.
-6. Follow the target project's language conventions for commits, PRs, docs, comments, and UI strings. Use the user's language for conversation. For PT-BR prose, apply `../unslop-br/SKILL.md`. For English prose, use an installed English writing skill such as `humanizer`; if none is available, apply the prose rules in step 4. Do not apply Portuguese vocabulary rules to other languages.
+6. Follow the target project's language conventions for commits, PRs, docs, comments, and UI strings. Use the user's language for conversation. For PT-BR prose, apply `../unslop-br/SKILL.md`. For English prose, use an installed English writing skill such as `humanizer`; if none is available, apply the prose rules in step 5. Do not apply Portuguese vocabulary rules to other languages.
 7. For checks through rtk, use `pnpm -C <pkg> <script>`. rtk does not yet forward `--filter` to `tsc`; `pnpm --filter <pkg> <script>` can run the compiler at the monorepo root, print help, and exit 1 as a false typecheck failure. A subagent interrupted by a usage limit or timeout may leave completed work uncommitted: inspect `git status` and `git diff` before starting over.
 
 ## When subagents are unavailable
 
-If usage limits, missing subagent tools, or a persistent subagent failure prevent delegation, run steps 1 through 3 sequentially in the main conversation. Keep the same scope, checks, and attribution rules. Review the full diff, verify in the code the facts assumed by the tests (helpers, seeds, counts), and audit each quoted passage before committing. Self-review requires extra care because it lacks a fresh reader.
+If usage limits, missing subagent tools, or a persistent subagent failure prevent delegation, run steps 1 through 4 sequentially in the main conversation, including the cleaner correction pass. Keep the same scope, checks, and attribution rules. Review the full diff, verify in the code the facts assumed by the tests (helpers, seeds, counts), and audit each quoted passage before committing. Self-review requires extra care because it lacks a fresh reader.
 
 ## Step 0, prepare the item
 
 - Take the items from the repo roadmap (in todo-jarvis, `docs/05-roadmap.md` and `docs/06-questoes-abertas.md`) or the operator's list. Confirm the list and order before the first iteration.
 - Run `git fetch origin` e crie um worktree limpo com `git worktree add -b feat/<slug> ~/.cache/worktrees/<slug> origin/main`. O diretório `~/.cache/worktrees` fica no disco (não consome tmpfs/RAM e permite hardlinks do pnpm store). Se um worktree remanescente existir de iteração anterior, entre nele e inspecione `git status` e `git log --oneline -3`.
-- Discover the validation commands in each affected package.json (test, typecheck, lint). Include them in all three subagent prompts.
+- Discover the validation commands in each affected package.json (test, typecheck, lint). Include them in every subagent prompt, including a possible cleaner correction pass.
 - Define the scope, exclusions, and completion criteria in a few sentences. An open scope makes the PR larger and harder to review.
-- Establish the language for each output from the project's instructions and existing files or commit history. Pass that choice to all three subagents.
+- Establish the language for each output from the project's instructions and existing files or commit history. Pass that choice to every subagent.
 
 ## Step 1, implementation subagent
 
@@ -49,7 +49,7 @@ REQUIREMENTS:
 STYLE: follow the repo's conventions; read neighboring files before writing.
 Language for comments, docs, UI strings, and commits: [project conventions].
 Explain the mechanism in comments. Apply [writing skill selected for the
-output language, or the prose rules from step 4]. Use active voice and
+output language, or the prose rules from step 5]. Use active voice and
 concrete mechanisms. Avoid decorative dashes, trailing filler clauses,
 false dichotomies, inflated vocabulary, and vague verbs.
 
@@ -63,7 +63,52 @@ FINAL REPORT: changes by file, test counts, commit hash,
 and omitted work with reasons.
 ```
 
-## Step 2, review subagent (read only)
+## Step 2, clean-crap gate (main agent)
+
+After the implementation commit and before any review, run the deterministic complexity-and-coverage gate from the sibling `clean-crap` skill against the worktree. Resolve `<clean-crap>` as the `clean-crap` folder next to this skill (for example `~/.agents/skills/clean-crap`); install its dependency once per checkout with `npm ci --prefix <clean-crap>`. Then:
+
+```
+node <clean-crap>/scripts/clean-crap.mjs --root <WORKTREE> --changed [--threshold N]
+```
+
+`--changed` limits the gate to files added or modified in this iteration; the default threshold is 30, overridable by the operator per project or slice. Exit codes: 0 gate passed; 1 tool or wiring error; 2 threshold exceeded, with the per-entry failure list on stdout and the report at `<worktree>/.metrics/crap.json`. The snapshot is never committed; ensure `.metrics/` is in the target project's ignore rules and add it in the next correction commit when missing.
+
+- Exit 0: advance to step 3.
+- Exit 2: run the correction pass below before any review.
+- Exit 1: fix the invocation or environment. A syntax error in changed sources goes back to the implementation scope. Never advance to review while the gate errors.
+
+Coverage: when stdout notes that no LCOV was found and step 0 discovered a coverage command, run that command once and re-run the gate so CRAP is scored with coverage. Without coverage data the gate measures complexity only and null CRAP never fails; record complexity-only gating in the iteration report when the project has no coverage infrastructure.
+
+### Correction pass after exit 2
+
+Delegate a focused fix subagent (inline when subagents are unavailable), then re-run the project's tests and the gate:
+
+```
+Lower CRAP in worktree [WORKTREE], branch [BRANCH].
+Do not push, rebase, or touch other repositories.
+The clean-crap gate failed threshold [N]:
+
+[FAILURE LIST from stdout: name, namespace, CRAP]
+
+Full report: <worktree>/.metrics/crap.json (never commit this file).
+
+Lower CRAP by splitting the named functions into smaller units or
+removing redundant branches; behavior must not change. Where splitting
+is not enough, add tests that exercise the uncovered branches to raise
+coverage. Run the gate again to confirm.
+
+REQUIRED CHECKS before committing: [commands]. Fix failures.
+COMMIT: one local commit, repo language and style, no AI attribution.
+FINAL REPORT: failing entries before and after, test counts, commit hash.
+```
+
+Allow at most two correction rounds per iteration. On the third gate failure, stop and escalate to the operator with the failure list; the operator may skip the gate for this slice or set a different threshold. Never weaken the gate silently.
+
+### Skipping the cleaner
+
+When the operator explicitly asks to skip the cleaner for a slice (for example docs-only or emergency delivery), record the skip in the conversation and the iteration report, then advance to step 3. A diff with no JS/TS sources yields zero entries and passes on its own; no skip is needed in that case.
+
+## Step 3, review subagent (read only)
 
 One subagent reviews both code and prose. Request a verdict and findings with severity and exact locations so the correction agent can act on them.
 
@@ -80,7 +125,7 @@ secrets in logs), edge cases, regressions, and test coverage. Verify claims
 about branch, main, and CI state in Git before relying on them.
 
 PART 2, prose: apply [writing skill selected for the output language,
-or the prose rules from step 4] to the PR body, commit messages, changed
+or the prose rules from step 5] to the PR body, commit messages, changed
 documentation, code comments, UI strings, and test descriptions.
 For PT-BR, first read ../unslop-br/SKILL.md. For English, use an installed
 English writing skill such as humanizer when available.
@@ -101,7 +146,7 @@ REPORT:
 - Ordered changes required before merge (empty if none)
 ```
 
-## Step 3, correction subagent
+## Step 4, correction subagent
 
 Turn the reviewer's ordered findings into numbered instructions with file:line and the intended correction. Skip this step if the reviewer requires no changes.
 
@@ -122,7 +167,7 @@ FINAL REPORT: changes by file, test counts, commit hash,
 and unapplied items with reasons.
 ```
 
-## Step 4, Git publication and merge (main agent)
+## Step 5, Git publication and merge (main agent)
 
 Follow this order:
 
@@ -136,7 +181,7 @@ Follow this order:
 
 For the PR body, use plain file bullets such as "- `path`: description", sentence case headings, and colons only before lists, code, or definitions. Avoid decorative dashes, false dichotomies, trailing filler clauses, emojis, and flattery. Support claims with a mechanism, parameter, or number (test counts, hashes, RFCs). Describe what the system does. Apply vocabulary rules appropriate to the prose's language. Keep code identifiers, protocol names, and quoted source material intact.
 
-## Step 5, next item
+## Step 6, next item
 
 - Update the roadmap, open questions, and ADRs affected by the item. Include those changes in the correction commit when appropriate.
 - Report the iteration briefly: scope, PR/commit, test counts, and recorded follow-ups.
@@ -147,6 +192,7 @@ Stop when the list ends, the operator requests a pause, or an item requires an e
 ## Check before advancing
 
 - Step 1 → 2: worktree has a local commit, tests pass, and the scope is delivered.
-- Step 2 → 3: review conclusions have become numbered instructions with exact locations, or no changes are needed and you skip to step 4.
-- Step 3 → 4: tests pass again and the commit has been checked for attribution.
-- Step 4 → 5: PR merged with authorization, local main updated, worktree and branch removed, and main CI passing when present.
+- Step 2 → 3: the clean-crap gate exited 0 (after at most two correction rounds), or the operator explicitly skipped the cleaner for this slice.
+- Step 3 → 4: review conclusions have become numbered instructions with exact locations, or no changes are needed and you skip to step 5.
+- Step 4 → 5: tests pass again and the commit has been checked for attribution.
+- Step 5 → 6: PR merged with authorization, local main updated, worktree and branch removed, and main CI passing when present.
