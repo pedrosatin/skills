@@ -1,6 +1,6 @@
 ---
 name: publication-hygiene
-description: Validate Git commits, pushes, and GitHub pull-request activity before publishing, removing agent provenance and operational WIP while preserving product documentation.
+description: Validate Git commits, pushes, and GitHub pull-request activity before publishing, removing agent provenance and operational WIP while preserving product documentation. Use when committing, pushing, or creating, editing, commenting on, or merging a GitHub pull request.
 metadata:
   short-description: Check publication hygiene
 ---

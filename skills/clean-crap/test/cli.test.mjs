@@ -138,6 +138,8 @@ test('help succeeds and documents flags and exit codes', async () => {
   assert.match(help.stdout, /Usage: clean-crap/);
   assert.match(help.stdout, /--use-existing-coverage/);
   assert.match(help.stdout, /--changed/);
+  assert.match(help.stdout, /--since <revision>/);
+  assert.match(help.stdout, /Measure complexity only; no CRAP gate/);
   assert.match(help.stdout, /Exit codes/);
 });
 
@@ -444,4 +446,59 @@ test('a root with no sources and a filter matching nothing both exit 0 with an e
   assert.equal(none.status, 0, none.stderr);
   assert.deepEqual((await report(root)).entries, []);
   assert.match(none.stdout, /0 entries/);
+});
+
+test('--since selects committed work and later corrections from the merge-base', async t => {
+  const root = await workspace(t);
+  const git = (...args) => spawnSync('git', ['-c', 'user.email=test@example.com', '-c', 'user.name=test', ...args], { cwd: root, encoding: 'utf8' });
+  const command = (...args) => { const result = git(...args); assert.equal(result.status, 0, result.stderr); return result.stdout.trim(); };
+  command('init', '-q', '-b', 'main', '.');
+  await mkdir(path.join(root, 'src'));
+  for (const name of ['committed', 'correction', 'staged', 'deleted', 'old', 'untouched']) {
+    await writeFile(path.join(root, 'src', `${name}.ts`), `export function ${name}() { return 1; }\n`);
+  }
+  command('add', '-A');
+  command('commit', '-qm', 'base');
+  command('branch', 'base');
+  command('checkout', '-qb', 'delivery');
+  await writeFile(path.join(root, 'src/committed.ts'), 'export function committed(x) { return x ? 1 : 0; }\n');
+  await writeFile(path.join(root, 'src/added.ts'), 'export function added() { return 1; }\n');
+  command('mv', 'src/old.ts', 'src/renamed.ts');
+  command('rm', 'src/deleted.ts');
+  command('add', '-A');
+  command('commit', '-qm', 'implementation');
+  // Advance the reference independently: selection must start at the common ancestor.
+  command('checkout', 'base');
+  await writeFile(path.join(root, 'reference.ts'), 'export function reference() { return 1; }\n');
+  command('add', '-A');
+  command('commit', '-qm', 'reference advanced');
+  command('checkout', 'delivery');
+  await writeFile(path.join(root, 'src/correction.ts'), 'export function correction(x) { return x ? 2 : 0; }\n');
+  await writeFile(path.join(root, 'src/staged.ts'), 'export function staged(x) { return x ? 2 : 0; }\n');
+  command('add', 'src/staged.ts');
+  await mkdir(path.join(root, 'new-directory'));
+  await writeFile(path.join(root, 'new-directory/untracked.ts'), 'export function untracked() { return 1; }\n');
+  const result = run(root, '--no-coverage', '--since', 'base');
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual((await report(root)).entries.map(entry => entry.namespace).sort(), ['src.added', 'src.committed', 'src.correction', 'src.renamed', 'src.staged', 'new-directory.untracked'].sort());
+  const nested = run(path.join(root, 'src'), '--no-coverage', '--since', 'base');
+  assert.equal(nested.status, 0, nested.stderr);
+  assert.deepEqual((await report(path.join(root, 'src'))).entries.map(entry => entry.namespace).sort(), ['added', 'committed', 'correction', 'renamed', 'staged']);
+  const filtered = run(root, '--no-coverage', '--since', 'base', 'src/renamed.ts');
+  assert.equal(filtered.status, 0, filtered.stderr);
+  assert.deepEqual((await report(root)).entries.map(entry => entry.namespace), ['src.renamed']);
+  const changed = run(root, '--no-coverage', '--changed');
+  assert.equal(changed.status, 0, changed.stderr);
+  assert.deepEqual((await report(root)).entries.map(entry => entry.namespace).sort(), ['src.correction', 'src.staged', 'new-directory.untracked'].sort());
+});
+
+test('--since invalid revisions and conflicting selection flags fail without reports', async t => {
+  const root = await workspace(t);
+  assert.equal(spawnSync('git', ['init', '-q', root]).status, 0);
+  for (const flags of [['--since'], ['--since', 'missing-ref'], ['--since', 'HEAD', '--changed'], ['--changed', '--since', 'HEAD']]) {
+    const result = run(root, '--no-coverage', ...flags);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /--since/);
+    await assert.rejects(readFile(path.join(root, '.metrics/crap.json')), { code: 'ENOENT' });
+  }
 });

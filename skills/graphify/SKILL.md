@@ -68,10 +68,18 @@ Only when the path is one or more `https://github.com/...` URLs, or several loca
 # Detect the correct Python interpreter (handles uv tool, pipx, venv, system installs)
 PYTHON=""
 GRAPHIFY_BIN=$(which graphify 2>/dev/null)
-# 1. uv tool installs — most reliable on modern Mac/Linux
+# 1. uv tool installs — inspect an already-installed tool; do not fetch
 if [ -z "$PYTHON" ] && command -v uv >/dev/null 2>&1; then
-    _UV_PY=$(uv tool run --from graphifyy python -c "import sys; print(sys.executable)" 2>/dev/null)
-    if [ -n "$_UV_PY" ]; then PYTHON="$_UV_PY"; fi
+    _UV_TOOLS=$(uv tool dir 2>/dev/null)
+    if [ -n "$_UV_TOOLS" ]; then
+        for _name in graphifyy graphify; do
+            _cand="$_UV_TOOLS/$_name/bin/python"
+            if [ -x "$_cand" ] && "$_cand" -c "import graphify" 2>/dev/null; then
+                PYTHON="$_cand"
+                break
+            fi
+        done
+    fi
 fi
 # 2. Read shebang from graphify binary (pipx and direct pip installs)
 if [ -z "$PYTHON" ] && [ -n "$GRAPHIFY_BIN" ]; then
@@ -84,31 +92,38 @@ fi
 # 3. Fall back to python3
 if [ -z "$PYTHON" ]; then PYTHON="python3"; fi
 if ! "$PYTHON" -c "import graphify" 2>/dev/null; then
-    # If graphify is missing, ask the operator before installing it.
-    # ("Graphify is not installed in this environment. Install it with 'uv tool install graphifyy' or 'pip install graphifyy'?")
-    if command -v uv >/dev/null 2>&1; then
-        uv tool install --upgrade graphifyy -q 2>&1 | tail -3
-        _UV_PY=$(uv tool run --from graphifyy python -c "import sys; print(sys.executable)" 2>/dev/null)
-        if [ -n "$_UV_PY" ]; then PYTHON="$_UV_PY"; fi
-    else
-        "$PYTHON" -m pip install graphifyy -q 2>/dev/null \
-          || "$PYTHON" -m pip install graphifyy -q --break-system-packages 2>&1 | tail -3
-    fi
-fi
-# Write interpreter path for all subsequent steps (persists across invocations)
-mkdir -p graphify-out
-"$PYTHON" -c "import sys; open('graphify-out/.graphify_python', 'w', encoding='utf-8').write(sys.executable)"
-# Save scan root so `graphify update` (no args) knows where to look next time.
-# The scan path is passed through a quoted heredoc, never substituted into the
-# command line itself: a bare `cd <path>` (or an unquoted heredoc, which
-# still expands $()/backticks in its body) would let a malicious path execute
-# as shell code the moment this line runs.
-"$PYTHON" -c "import os, sys; out_path = os.path.abspath('graphify-out/.graphify_root'); os.chdir(sys.stdin.readline().rstrip('\n')); open(out_path, 'w', encoding='utf-8').write(os.getcwd())" <<'GRAPHIFY_ROOT_EOF'
+    echo "GRAPHIFY_MISSING"
+else
+    # Write interpreter path for all subsequent steps (persists across invocations)
+    mkdir -p graphify-out
+    "$PYTHON" -c "import sys; open('graphify-out/.graphify_python', 'w', encoding='utf-8').write(sys.executable)"
+    # Save scan root so `graphify update` (no args) knows where to look next time.
+    # The scan path is passed through a quoted heredoc, never substituted into the
+    # command line itself: a bare `cd <path>` (or an unquoted heredoc, which
+    # still expands $()/backticks in its body) would let a malicious path execute
+    # as shell code the moment this line runs.
+    "$PYTHON" -c "import os, sys; out_path = os.path.abspath('graphify-out/.graphify_root'); os.chdir(sys.stdin.readline().rstrip('\n')); open(out_path, 'w', encoding='utf-8').write(os.getcwd())" <<'GRAPHIFY_ROOT_EOF'
 INPUT_PATH
 GRAPHIFY_ROOT_EOF
+fi
 ```
 
 If the import succeeds, print nothing and move straight to Step 2.
+
+If the block prints `GRAPHIFY_MISSING` (`graphify` is not on PATH and `import graphify` failed), ask the operator and wait before any install:
+
+> Graphify is not installed in this environment. Install it with `uv tool install graphifyy` or `pip install graphifyy`?
+
+This ask is done when they have answered. If they decline, stop the pipeline. After they confirm, run the install block below, then re-run this step's detection block so the sidecars are written with a working import:
+
+```bash
+if command -v uv >/dev/null 2>&1; then
+    uv tool install --upgrade graphifyy -q 2>&1 | tail -3
+else
+    python3 -m pip install graphifyy -q 2>/dev/null \
+      || python3 -m pip install graphifyy -q --break-system-packages 2>&1 | tail -3
+fi
+```
 
 **In every subsequent bash block, replace `python3` with `$(cat graphify-out/.graphify_python)` to use the correct interpreter.**
 
@@ -276,9 +291,13 @@ Each subagent receives this exact prompt (substitute FILE_LIST, CHUNK_NUM, TOTAL
 
 CHUNK_PATH must be an **absolute** path — derive it before dispatching:
 ```bash
-PROJECT_ROOT=$(pwd)  # cwd — where Part C globs graphify-out/ (NOT .graphify_root/scan dir, #1392)
-# Then for chunk N: CHUNK_PATH="${PROJECT_ROOT}/graphify-out/.graphify_chunk_0N.json"
+PROJECT_ROOT=$(pwd)
+rm -f graphify-out/.graphify_semantic_new.json
+CHUNK_DIR=$(mktemp -d "${PROJECT_ROOT}/graphify-out/.graphify_chunks.XXXXXX")
+# For chunk N: CHUNK_PATH="${CHUNK_DIR}/chunk_0N.json"
 ```
+
+Before dispatch, write `graphify-out/.graphify_chunk_paths.json` as a JSON array of the absolute CHUNK_PATH values for this run. Include every dispatched chunk, including ones that may fail. The unique directory isolates interrupted-run outputs.
 
 Subagent prompt template:
 
@@ -287,24 +306,41 @@ See `references/extraction-spec.md` for the exact subagent prompt (JSON schema, 
 **Step B3 - Collect, cache, and merge**
 
 Wait for all subagents. For each result:
-- Check that `graphify-out/.graphify_chunk_NN.json` exists on disk — this is the success signal
+- Check that the dispatched CHUNK_PATH exists on disk — this is the success signal
 - If the file exists and contains valid JSON with `nodes` and `edges`, include it and save to cache
 - If the file is missing, the subagent was likely dispatched as read-only (Explore type) — print a warning: "chunk N missing from disk — subagent may have been read-only. Re-run with general-purpose agent." Do not silently skip.
 - If a subagent failed or returned invalid JSON, print a warning and skip that chunk - do not abort
 
 If more than half the chunks failed or are missing, stop and tell the user to re-run and ensure `subagent_type="general-purpose"` is used.
 
-Merge all chunk files into `.graphify_semantic_new.json`. **After each Agent call completes, read the real token counts from the Agent tool result's `usage` field and write them back into the chunk JSON before merging** — the chunk JSON itself always has placeholder zeros. Then run:
+Merge only the current-run paths from the manifest into `.graphify_semantic_new.json`. **After each Agent call completes, read the real token counts from the Agent tool result's `usage` field and write them back into the chunk JSON before merging** — the chunk JSON itself always has placeholder zeros. Then run:
 ```bash
 $(cat graphify-out/.graphify_python) -c "
-import json, glob
+import json
 from pathlib import Path
 
-chunks = sorted(glob.glob('graphify-out/.graphify_chunk_*.json'))
+chunks = json.loads(Path('graphify-out/.graphify_chunk_paths.json').read_text())
+if not chunks:
+    raise SystemExit('No semantic chunks dispatched')
+valid = []
+for c in chunks:
+    try:
+        d = json.loads(Path(c).read_text(encoding=\"utf-8\"))
+        if not isinstance(d, dict) or not isinstance(d.get('nodes'), list) or not isinstance(d.get('edges'), list):
+            raise ValueError('nodes and edges must be arrays')
+        if not isinstance(d.get('hyperedges', []), list):
+            raise ValueError('hyperedges must be an array')
+        for key in ('input_tokens', 'output_tokens'):
+            if not isinstance(d.get(key, 0), (int, float)):
+                raise ValueError(f'{key} must be numeric')
+        valid.append(d)
+    except (OSError, ValueError) as exc:
+        print(f'Warning: skipping chunk {c}: {exc}')
+if len(chunks) - len(valid) > len(chunks) / 2:
+    raise SystemExit('More than half the chunks failed; rerun extraction')
 all_nodes, all_edges, all_hyperedges = [], [], []
 total_in, total_out = 0, 0
-for c in chunks:
-    d = json.loads(Path(c).read_text(encoding=\"utf-8\"))
+for d in valid:
     all_nodes += d.get('nodes', [])
     all_edges += d.get('edges', [])
     all_hyperedges += d.get('hyperedges', [])
@@ -314,7 +350,7 @@ Path('graphify-out/.graphify_semantic_new.json').write_text(json.dumps({
     'nodes': all_nodes, 'edges': all_edges, 'hyperedges': all_hyperedges,
     'input_tokens': total_in, 'output_tokens': total_out,
 }, indent=2, ensure_ascii=False), encoding=\"utf-8\")
-print(f'Merged {len(chunks)} chunks: {total_in:,} in / {total_out:,} out tokens')
+print(f'Merged {len(valid)}/{len(chunks)} chunks: {total_in:,} in / {total_out:,} out tokens')
 "
 ```
 
@@ -628,6 +664,7 @@ print(f'All time: {cost[\"total_input_tokens\"]:,} input, {cost[\"total_output_t
 "
 rm -f graphify-out/.graphify_detect.json graphify-out/.graphify_extract.json graphify-out/.graphify_ast.json graphify-out/.graphify_semantic.json graphify-out/.graphify_analysis.json
 find graphify-out -maxdepth 1 -name '.graphify_chunk_*.json' -delete 2>/dev/null
+find graphify-out -maxdepth 1 -type d -name '.graphify_chunks.*' -exec rm -r -- {} +
 rm -f graphify-out/.needs_update 2>/dev/null || true
 ```
 

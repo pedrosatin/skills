@@ -66,48 +66,23 @@ After confirmation:
 
 ### 4. Generate the Project Hub dashboard
 
-Run the skill's script:
-```bash
-node scripts/generate-hub.mjs
-```
-Or use `node ~/.agents/skills/setup/scripts/generate-hub.mjs <repository-path>`.
-
-If the user supplied the `--docs` flag, use:
-```bash
-node scripts/generate-hub.mjs --docs
-```
-
-This script generates and regenerates `.scratch/index.html`. Do not edit the HTML file by hand. Make fixes and visual improvements in the `setup` skill's generator.
-
-#### Fixture and structural smoke check
-
-To validate the generator independently of the user's `.scratch` directory, use the `fixtures/minimal-scratch/` tree, which contains a sample spec and tickets, and the `--fixture` flag:
+This skill owns hub regeneration. Resolve `<setup>` as this skill's directory (the folder that contains this SKILL.md). Always pass the target repository:
 
 ```bash
-node scripts/generate-hub.mjs --fixture
+node <setup>/scripts/generate-hub.mjs <project-root>
 ```
 
-Behavior:
-- Collects tickets and specs only from the skill's fixture (`fixtures/minimal-scratch/`), ignoring the positional path and the current directory's `.scratch`.
-- Writes the test HTML to `fixtures/hub-fixture.html`, beside the fixture and relative to the skill.
-- Runs a structural smoke check on the generated HTML and exits with a nonzero code on failure. Checks:
-  - presence of the Markdown body (`.md-body`);
-  - side panel markers (`side-panel` and `role="dialog"`);
-  - absence of `<iframe`;
-  - presence of `--accent: #22c55e`, the default for a fixture without a brand;
-  - presence of `--accent-fg` and `project-hub-theme-source=default`;
-  - absence of the brand indigo `--primary: #6366f1`;
-  - presence of `contentHtml` in the JSON payload;
-  - inference helper checks (`light-dark`, rejection of near-black colors).
-- On success: exits with code 0 and logs the HTML path.
+Sibling skills resolve `<setup>` as the `setup` folder next to themselves. A cwd-relative `../setup/scripts/generate-hub.mjs` follows the terminal, not the skill, and fails from the project root.
 
-Existing flags (`--docs`, `--open`, and the positional repository path) behave as before when `--fixture` is absent.
+If the user supplied `--docs`, pass `--docs`. Fixes and visual changes belong in this generator; regenerate `.scratch/index.html` instead of patching it.
+
+Maintainers: `node scripts/generate-hub.mjs --fixture` smokes the generator against `fixtures/minimal-scratch/`.
 
 ### Project Hub design contract
 
 Before changing the generator or the hub's appearance, read `templates/hub-design-contract.md`.
 
-The screen supports scanning the Kanban board, reading formatted Markdown (tickets, specs, rules, and GRAPH_REPORT), and copying a ticket dispatch prompt. The artifact is a single offline file with no CDN dependencies, regenerated idempotently from the Markdown in `.scratch/`. Tickets, specs, rules, and the graph report appear as formatted documents. Details open in a side panel on the right. Use neutral zinc/slate colors with a green accent by default. The generator infers the project's brand color from CSS variables, theme-color, or Tailwind when the evidence is reliable. Reject generic LLM indigo/purple defaults, emoji in interface labels, lift or theatrical shadows on hover, and excessive rounded corners or pills as a visual identity.
+Operator-facing constraints: one offline file, no CDN; Kanban scan, formatted Markdown (tickets, specs, rules, GRAPH_REPORT), and a copyable dispatch prompt; details in a right-hand side panel; zinc/slate neutrals with a green accent by default, brand color inferred from CSS variables, theme-color, or Tailwind when the evidence is reliable. Generic LLM indigo/purple, emoji in interface labels, theatrical hover lift, and pill-heavy rounding stay out of the visual identity.
 
 ### 5. Finish and explain the workflow
 

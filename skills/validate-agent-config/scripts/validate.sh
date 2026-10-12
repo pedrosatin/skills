@@ -111,118 +111,130 @@ for e in "$CLAUDE_SKILLS"/*; do
 done
 
 # ---------- 4. skills: SKILL.md lint (conventions) ----------
+lint_skill_dir() {
+  local real="$1"
+  local name sk desc dmi pol fm_name lines ref dep
+  name="$(basename "$real")"
+  sk="$real/SKILL.md"
+  [ -f "$sk" ] || return 0
+
+  # 4.1 ID: kebab-case, <=64 (portable standard; recommended by OpenCode)
+  if ! printf '%s' "$name" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$'; then
+    warn "ID is not kebab-case: $name"
+  else ok; fi
+  [ "${#name}" -le 64 ] || warn "ID exceeds 64 characters: $name"
+
+  # 4.2 frontmatter fields and name matching the directory
+  head -c 2000 "$sk" | grep -q '^description:' || warn "$name: frontmatter missing description (skill is not advertised to the model)"
+  head -c 2000 "$sk" | grep -q '^name:' || warn "$name: frontmatter missing name"
+  fm_name="$(awk '
+    BEGIN { in_fm=0 }
+    /^---[[:space:]]*$/ {
+      if (!in_fm) { in_fm=1; next }
+      else exit
+    }
+    in_fm && /^name:[[:space:]]*/ {
+      sub(/^name:[[:space:]]*/, "")
+      sub(/^[[:space:]]+/, "")
+      sub(/^["'\''"]/, ""); sub(/["'\''"][[:space:]]*$/, "")
+      sub(/[[:space:]]+$/, "")
+      print
+      exit
+    }
+  ' "$sk")"
+  if [ "$fm_name" = "$name" ]; then
+    ok
+  else
+    err "$name: name field differs from the directory (name: '$fm_name')"
+  fi
+
+  # extract the complete description block (including multiline blocks with | or >)
+  desc="$(awk '
+    BEGIN { in_fm=0; in_desc=0 }
+    /^---[[:space:]]*$/ {
+      if (!in_fm) { in_fm=1; next }
+      else { exit }
+    }
+    in_fm && /^description:[[:space:]]*/ {
+      in_desc=1
+      sub(/^description:[[:space:]]*/, "")
+      if ($0 ~ /^[|>][-+0-9]*[[:space:]]*$/) next
+      sub(/^["'\''"]/, ""); sub(/["'\''"][[:space:]]*$/, "")
+      if (length($0) > 0) print
+      next
+    }
+    in_fm && in_desc {
+      if (/^[a-zA-Z0-9_-]+:[[:space:]]*/) exit
+      sub(/^[[:space:]]+/, "")
+      sub(/^["'\''"]/, ""); sub(/["'\''"][[:space:]]*$/, "")
+      if (length($0) > 0) print
+    }
+  ' "$sk")"
+  [ "${#desc}" -le 1024 ] || warn "$name: description has ${#desc} characters (increases context token use in every session)"
+
+  # 4.3 invocation parity and trigger checks
+  dmi="$(grep -c '^disable-model-invocation: *true' "$sk")"
+  if [ -f "$real/agents/openai.yaml" ]; then
+    pol="$(grep -c 'allow_implicit_invocation: *false' "$real/agents/openai.yaml")"
+    if [ "$dmi" -gt 0 ] && [ "$pol" -eq 0 ]; then
+      warn "$name: user-invoked in SKILL.md but agents/openai.yaml lacks allow_implicit_invocation: false"
+    elif [ "$dmi" -eq 0 ] && [ "$pol" -gt 0 ]; then
+      warn "$name: user-invoked in openai.yaml but SKILL.md lacks disable-model-invocation: true"
+    else
+      ok
+    fi
+  fi
+  if [ "$dmi" -gt 0 ]; then
+    # user-invoked descriptions do not need trigger phrases (intended for the operator)
+    if printf '%s' "$desc" | grep -qiE 'use when|use ao |aplique ao'; then
+      warn "$name: user-invoked with a model-facing description (trigger phrases); user-invoked descriptions are intended for the operator"
+    fi
+  else
+    # model-invoked skills require clear activation conditions in the description
+    if printf '%s\n' "$desc" | grep -qiE 'use when|quando|use ao|aplique ao'; then
+      ok
+    else
+      warn "$name: model-invoked skills require clear activation conditions in the description (terms: use when, quando, use ao, aplique ao)"
+    fi
+  fi
+
+  # 4.4 sprawl warning and context load (applies even when references/ or scripts/ exist)
+  lines="$(wc -l < "$sk" | tr -d ' ')"
+  if [ "$lines" -gt 350 ]; then
+    warn "$name: SKILL.md has $lines lines (disclose into references/; threshold applies even when references/ or scripts/ exist)"
+  else
+    ok
+  fi
+
+  # 4.5 relative references in the body resolve (the skill should be self-contained)
+  while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    [ -e "$real/$ref" ] || warn "$name: internal reference does not exist: $ref"
+  done < <(grep -oE '\]\((references|scripts|assets|agents)/[a-zA-Z0-9._/-]+\)' "$sk" | sed -E 's/^\]\(//; s/\)$//' | sort -u;
+           grep -oE '`(references|scripts|assets|agents)/[a-zA-Z0-9._/-]+`' "$sk" | tr -d '`' | sort -u)
+
+  # 4.6 cross-skill dependencies name existing skills
+  while IFS= read -r dep; do
+    [ -n "$dep" ] || continue
+    if skill_exists "$dep"; then ok; else err "$name: calls skill \"$dep\" which does not exist"; fi
+  done < <(grep -oE 'skill: *"([a-z0-9-]+)"' "$sk" | sed -E 's/skill: *"//; s/"//' | sort -u;
+           grep -oE 'Skill tool with "([a-z0-9-]+)"' "$sk" | sed -E 's/.*with "//; s/"//' | sort -u)
+}
+
 echo "== 4. Skills (content lint)"
 for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
   for e in "$root"/*; do
     [ -L "$e" ] && continue
     [ -f "$e/SKILL.md" ] || continue
-    name="$(basename "$e")"
-    real="$e"
-    sk="$real/SKILL.md"
-
-    # 4.1 ID: kebab-case, <=64 (portable standard; recommended by OpenCode)
-    if ! printf '%s' "$name" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$'; then
-      warn "ID is not kebab-case: $name"
-    else ok; fi
-    [ "${#name}" -le 64 ] || warn "ID exceeds 64 characters: $name"
-
-    # 4.2 frontmatter fields and name matching the directory
-    head -c 2000 "$sk" | grep -q '^description:' || warn "$name: frontmatter missing description (skill is not advertised to the model)"
-    head -c 2000 "$sk" | grep -q '^name:' || warn "$name: frontmatter missing name"
-    fm_name="$(awk '
-      BEGIN { in_fm=0 }
-      /^---[[:space:]]*$/ {
-        if (!in_fm) { in_fm=1; next }
-        else exit
-      }
-      in_fm && /^name:[[:space:]]*/ {
-        sub(/^name:[[:space:]]*/, "")
-        sub(/^[[:space:]]+/, "")
-        sub(/^["'\''"]/, ""); sub(/["'\''"][[:space:]]*$/, "")
-        sub(/[[:space:]]+$/, "")
-        print
-        exit
-      }
-    ' "$sk")"
-    if [ "$fm_name" = "$name" ]; then
-      ok
-    else
-      err "$name: name field differs from the directory (name: '$fm_name')"
-    fi
-
-    # extract the complete description block (including multiline blocks with | or >)
-    desc="$(awk '
-      BEGIN { in_fm=0; in_desc=0 }
-      /^---[[:space:]]*$/ {
-        if (!in_fm) { in_fm=1; next }
-        else { exit }
-      }
-      in_fm && /^description:[[:space:]]*/ {
-        in_desc=1
-        sub(/^description:[[:space:]]*/, "")
-        if ($0 ~ /^[|>][-+0-9]*[[:space:]]*$/) next
-        sub(/^["'\''"]/, ""); sub(/["'\''"][[:space:]]*$/, "")
-        if (length($0) > 0) print
-        next
-      }
-      in_fm && in_desc {
-        if (/^[a-zA-Z0-9_-]+:[[:space:]]*/) exit
-        sub(/^[[:space:]]+/, "")
-        sub(/^["'\''"]/, ""); sub(/["'\''"][[:space:]]*$/, "")
-        if (length($0) > 0) print
-      }
-    ' "$sk")"
-    [ "${#desc}" -le 1024 ] || warn "$name: description has ${#desc} characters (increases context token use in every session)"
-
-    # 4.3 invocation parity and trigger checks
-    dmi="$(grep -c '^disable-model-invocation: *true' "$sk")"
-    if [ -f "$real/agents/openai.yaml" ]; then
-      pol="$(grep -c 'allow_implicit_invocation: *false' "$real/agents/openai.yaml")"
-      if [ "$dmi" -gt 0 ] && [ "$pol" -eq 0 ]; then
-        warn "$name: user-invoked in SKILL.md but agents/openai.yaml lacks allow_implicit_invocation: false"
-      elif [ "$dmi" -eq 0 ] && [ "$pol" -gt 0 ]; then
-        warn "$name: user-invoked in openai.yaml but SKILL.md lacks disable-model-invocation: true"
-      else
-        ok
-      fi
-    fi
-    if [ "$dmi" -gt 0 ]; then
-      # user-invoked descriptions do not need trigger phrases (intended for the operator)
-      if printf '%s' "$desc" | grep -qiE 'use when|use ao |aplique ao'; then
-        warn "$name: user-invoked with a model-facing description (trigger phrases); user-invoked descriptions are intended for the operator"
-      fi
-    else
-      # model-invoked skills require clear activation conditions in the description
-      if printf '%s\n' "$desc" | grep -qiE 'use when|quando|use ao|aplique ao'; then
-        ok
-      else
-        warn "$name: model-invoked skills require clear activation conditions in the description (terms: use when, quando, use ao, aplique ao)"
-      fi
-    fi
-
-    # 4.4 sprawl warning and context load
-    lines="$(wc -l < "$sk")"
-    if [ "$lines" -gt 350 ] && [ ! -d "$real/references" ] && [ ! -d "$real/scripts" ]; then
-      warn "$name: SKILL.md has $lines lines without references/ or scripts/ (move long sections to references/)"
-    else
-      ok
-    fi
-
-    # 4.5 relative references in the body resolve (the skill should be self-contained)
-    while IFS= read -r ref; do
-      [ -n "$ref" ] || continue
-      [ -e "$real/$ref" ] || warn "$name: internal reference does not exist: $ref"
-    done < <(grep -oE '\]\((references|scripts|assets|agents)/[a-zA-Z0-9._/-]+\)' "$sk" | sed -E 's/^\]\(//; s/\)$//' | sort -u;
-             grep -oE '`(references|scripts|assets|agents)/[a-zA-Z0-9._/-]+`' "$sk" | tr -d '`' | sort -u)
-
-    # 4.6 cross-skill dependencies name existing skills
-    while IFS= read -r dep; do
-      [ -n "$dep" ] || continue
-      if skill_exists "$dep"; then ok; else err "$name: calls skill \"$dep\" which does not exist"; fi
-    done < <(grep -oE 'skill: *"([a-z0-9-]+)"' "$sk" | sed -E 's/skill: *"//; s/"//' | sort -u;
-             grep -oE 'Skill tool with "([a-z0-9-]+)"' "$sk" | sed -E 's/.*with "//; s/"//' | sort -u)
+    lint_skill_dir "$e"
   done
 done
+if [ -d "$REPO/skills" ]; then
+  for d in "$REPO"/skills/*/; do
+    [ -f "$d/SKILL.md" ] || continue
+    lint_skill_dir "${d%/}"
+  done
+fi
 
 # ---------- 5. live probes ----------
 echo "== 5. Live probes"

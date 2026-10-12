@@ -1,7 +1,6 @@
 ---
 name: babysit-prs
-description: "Command-only: run only when the user types /babysit-prs. Reviews open PRs in the current repo, merges safe ones, and drafts and comments on risky ones. A plain 'review these PRs' request means review and report only, with no merges."
-trigger: /babysit-prs
+description: Review open PRs in the current repository, merge the safe ones, and leave a draft comment on the rest.
 disable-model-invocation: true
 ---
 
@@ -9,26 +8,27 @@ disable-model-invocation: true
 
 Review every open PR in the current repository. Merge what is safe. Flag what is not. Never guess. Never merge with doubts.
 
+Use `gh-axi` for GitHub. Read TOON output without piping it to jq.
+
 ## Workflow
 
 ### 1. List all open PRs
 
 ```bash
-gh pr list --state open --json number,title,headRefName,baseRefName,isDraft,author,mergeable,mergeStateStatus
+gh-axi pr list --state open
 ```
 
-If no open PRs → report and stop.
+Raise `--limit` when the count line shows a truncated page. If no open PRs, report and stop.
 
-### 2. For each PR, fetch the diff
+### 2. For each PR, fetch the diff and context
 
 ```bash
-gh pr diff <number>
+gh-axi pr diff <number> --full
+gh-axi pr view <number> --full --comments
+gh-axi api /repos/{owner}/{repo}/pulls/<number>
 ```
 
-Also fetch the PR body for context:
-```bash
-gh pr view <number> --json title,body,mergeable,mergeStateStatus,baseRefName
-```
+`--full` keeps the complete diff and body; the default truncates. `pr view` supplies title, body, draft, author, and comments. `pr list` and `pr view` omit mergeability and git refs; the REST pull object supplies `mergeable`, `mergeable_state`, `head.ref`, `head.sha`, and `base.ref`. Record the reviewed head SHA. Treat `mergeable: false` or `mergeable_state: dirty` as conflicting. If `mergeable` is null, GitHub has not computed it yet: retry once, and skip merge while it stays null.
 
 ### 3. Cross-PR conflict detection
 
@@ -37,7 +37,7 @@ Before reviewing individually, scan all diffs together for:
 - **Conflicting changes**: two PRs modifying the same file in incompatible ways → flag both, explain which to keep
 - **Sequential dependencies**: PR A must merge before PR B can be valid (e.g., B adds tests for a function A removes)
 
-### 4. Review criteria — MERGE only if ALL true
+### 4. Review criteria: MERGE only if ALL true
 
 - No bugs introduced (logic errors, off-by-one, null dereference, broken control flow)
 - No security regressions (XSS, injection, auth bypass, exposed secrets, weakened sandbox)
@@ -45,26 +45,26 @@ Before reviewing individually, scan all diffs together for:
 - No dead code added or critical code removed without clear justification
 - Not superseded by another PR in this batch
 - Not a major version dependency bump (requires manual test before merge)
-- `mergeable` is `MERGEABLE` (not `CONFLICTING`)
+- REST `mergeable` is true and `mergeable_state` is `clean`
 
 When in doubt → **do not merge**. Leave draft + comment.
 
 ### 5. Resolve conflicts before merging
 
-For every PR you intend to merge, first attempt `gh pr update-branch <number>`.
+For every PR you intend to merge, first attempt `gh-axi pr update-branch <number>`.
 
-If `update-branch` succeeds → proceed to merge.
+After any branch update or conflict resolution, fetch the resulting head SHA, inspect the new diff, and run the target project's required checks against that head. Repeat the review criteria for the updated diff; record the verified SHA. If checks fail or cannot be run, leave the PR unmerged with the specific blocker.
 
 If `update-branch` fails with conflicts → **attempt to resolve them yourself** before giving up:
 
 ```bash
 git fetch origin
-git checkout -b local-pr-<N> origin/<headRefName>
-git merge origin/<baseRefName> --no-edit
+git checkout -b local-pr-<N> origin/<head.ref>
+git merge origin/<base.ref> --no-edit
 # inspect conflicting files, resolve, then:
 git add <resolved-files>
 git merge --continue
-git push origin local-pr-<N>:<headRefName>
+git push origin local-pr-<N>:<head.ref>
 ```
 
 Conflicts that are safe to resolve autonomously:
@@ -80,34 +80,43 @@ Only leave a conflict for the author when:
 
 ### 6. Take action
 
-**To merge a draft PR:**
+Run `../publication-hygiene/SKILL.md` on squash `--subject` and `--body`, and on any comment body, before calling GitHub.
+
+**To merge a verified PR:**
+
+Re-read the REST pull object immediately before merging: require `head.sha` to equal the verified SHA and mergeability to satisfy step 4. If the SHA changed, return to review and checks. For a draft, mark it ready first; for an already-ready PR, omit `pr ready`. The merge command binds the action to the verified head:
+
 ```bash
-gh pr ready <number>
-gh pr update-branch <number>
-gh pr merge <number> --squash --subject "<type>(<scope>): <short description>"
+gh-axi pr ready <number>
+gh-axi pr merge <number> --match-head-commit <verified-sha> --squash --subject "<type>(<scope>): <short description>" --body "<body>"
 ```
 
-Never pass `--admin`. Merge only what GitHub already lets merge normally (`mergeStateStatus` is `CLEAN`). If the merge is refused by branch protection — required reviews, required checks not yet green, or an unmet gate — do not try to bypass it: leave the PR as-is and comment that it's ready but blocked on `<the specific gate>`, for the author to merge.
+Never pass `--admin`. Merge only what GitHub already lets merge normally (`mergeable_state` is `clean`). If the merge is refused by branch protection — required reviews, required checks not yet green, or an unmet gate — leave the PR as-is and comment that it's ready but blocked on `<the specific gate>`, for the author to merge.
 
-Commit subject format: Conventional Commits (`fix:`, `feat:`, `chore:`, `perf:`, `test:`, `refactor:`). Keep ≤72 chars.
+Commit subject format: Conventional Commits (`fix:`, `feat:`, `chore:`, `perf:`, `test:`, `refactor:`). Keep ≤72 chars. Set `--subject` and `--body` explicitly from the PR.
 
 **To leave a PR as draft with comment** (already draft):
+
 ```bash
-gh pr comment <number> --body "<explanation>"
+gh-axi pr comment <number> --body "<explanation>"
 ```
 
-**To convert a non-draft PR to draft**:
+**To convert a non-draft PR to draft:** `gh-axi pr ready` has no `--undo`. Convert with GitHub's `convertPullRequestToDraft` mutation, then comment. Default `gh-axi api` output drops `node_id`; pass `--full` to keep it.
+
 ```bash
-gh pr ready <number> --undo
-gh pr comment <number> --body "<explanation>"
+gh-axi api /repos/{owner}/{repo}/pulls/<number> --full
+gh-axi api POST graphql --raw-field query='mutation($id:ID!){convertPullRequestToDraft(input:{pullRequestId:$id}){pullRequest{isDraft}}}' --raw-field variables='{"id":"<node_id>"}'
+gh-axi pr comment <number> --body "<explanation>"
 ```
 
 **To close a PR you are leaving as draft+comment** (superseded / duplicate / no-op only):
+
 ```bash
-gh pr close <number>
+gh-axi pr close <number>
 ```
+
 Only close if BOTH:
-- the PR's author is the authenticated user (`gh api user --jq .login`) or a bot acting on their behalf (e.g. `jules[bot]`) — never close a PR authored by someone else
+- the PR's author is the authenticated user (read `login` from `gh-axi api /user`) or a bot acting on their behalf (e.g. `jules[bot]`) — never close a PR authored by someone else
 - the reason is superseded-by-merged-PR, duplicate-in-batch, or no-op (analysis/doc only, zero diff) — i.e. reasons where reopening later has no cost
 
 Do NOT close PRs flagged for author-judgment conflicts, ambiguous intent, or "needs manual test" — those need the author's eyes, not deletion. Do NOT force-push. Do NOT rebase branches.
@@ -122,20 +131,15 @@ After processing all PRs, output a summary table:
 
 ---
 
-## Decision guide (quick reference)
+## Decision guide
+
+Cases the merge criteria do not already cover:
 
 | Situation | Action |
 |-----------|--------|
-| Clean diff, no conflicts, no red flags | Merge |
-| Major version dependency bump (e.g. TS 6→7) | Comment: needs manual `npm run build && npm test` |
-| `CONFLICTING` mergeable status | Attempt to resolve the conflict (see §5). Only leave as draft if resolution requires author judgment |
-| Duplicate of already-merged PR | Comment naming the merged PR, close if own PR |
-| Superseded by another open PR in same batch | Comment naming the superseding PR, close the superseded one if own PR |
-| Adds tests for a file another PR removes | Comment about the conflict, leave as draft (do not close) |
-| No code changes (analysis/doc only PR) | Comment explaining it's a no-op, close if own PR |
-| Security fix — verify it actually fixes and doesn't regress | Merge only if fix is clear and complete |
-| Feature PR with merge conflicts | Try to resolve (see §5). Leave as draft only if intent is ambiguous |
-| Any doubt whatsoever | Leave as draft with comment — never merge with doubts |
+| Duplicate of an already-merged PR | Comment naming the merged PR; close if own |
+| Adds tests for a file another PR removes | Comment about the conflict; leave as draft (do not close) |
+| No code changes (analysis/doc only PR) | Comment explaining it's a no-op; close if own |
 
 ---
 
@@ -143,8 +147,4 @@ After processing all PRs, output a summary table:
 
 - **Language**: comment in the same language as the PR body (PT-BR or EN)
 - **One pass**: process all PRs in one session. Cross-check duplicates before acting on any individual PR.
-- **Idempotent**: if a PR already has a comment from a previous run of this skill, don't duplicate it — check existing comments first with `gh pr view <number> --json comments`.
-- **Loop mode**: this skill pairs well with `/loop` for continuous monitoring:
-  ```
-  /loop /babysit-prs
-  ```
+- **Idempotent**: if a PR already has a comment from a previous run of this skill, don't duplicate it — check existing comments first with `gh-axi pr view <number> --comments`.

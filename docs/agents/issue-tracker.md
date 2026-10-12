@@ -23,18 +23,13 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 
 ## Visual Dashboard
 
-An interactive Project Hub dashboard is maintained at:
-`.scratch/index.html`
+An interactive Project Hub dashboard is maintained at `.scratch/index.html`.
 
-To refresh the dashboard after modifying tickets or specs:
-```bash
-node ~/.agents/skills/setup/scripts/generate-hub.mjs
-```
+Refresh it with `/setup`: resolve the setup skill directory, then `node <setup>/scripts/generate-hub.mjs <this-repository-root>`.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
-Run `node ~/.agents/skills/setup/scripts/generate-hub.mjs` to refresh the visual dashboard.
+Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed). Refresh the Project Hub.
 
 ## When a skill says "fetch the relevant ticket"
 
@@ -52,8 +47,4 @@ Before starting, set `Status: claimed` in the ticket file.
 
 ### Resolve
 
-Check all acceptance criteria (`- [x]`), set `Status: resolved`, and refresh the dashboard:
-
-```bash
-node ~/.agents/skills/setup/scripts/generate-hub.mjs
-```
+Check all acceptance criteria (`- [x]`), set `Status: resolved`, and refresh the Project Hub.
