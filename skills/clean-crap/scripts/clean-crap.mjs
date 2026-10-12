@@ -9,39 +9,41 @@ const excludedDirs = new Set(['node_modules', '.git', 'dist', 'build', 'coverage
 const excludedFiles = /(?:\.d\.[cm]?ts$|\.(?:test|spec)\.[cm]?[jt]sx?$)/i;
 const unmergedStates = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
 const help = `Usage: clean-crap [--root <directory>] [--no-coverage | --use-existing-coverage]
-                  [--threshold <number>] [--changed] [<path>...]
+                  [--threshold <number>] [--changed | --since <revision>] [<path>...]
 
 Measure JS/TS function complexity, join LCOV coverage when available, compute
 CRAP = complexity^2 * (1 - coverage)^3 + complexity, gate on a threshold, and
 write <root>/.metrics/crap.json.
 
 --root <directory>       Project directory (default: current directory)
---no-coverage            Skip coverage; coverage/CRAP stay null and never gate
+--no-coverage            Measure complexity only; no CRAP gate (scores stay null)
 --use-existing-coverage  Join LCOV already on disk; fail when none is found
-(default coverage mode)  Join LCOV when found; otherwise score complexity only
+(default coverage mode)  Join LCOV when found; otherwise measure complexity only; no CRAP gate
 --threshold <number>     CRAP gate threshold, finite positive (default: 30)
---changed                Limit analysis to files added/modified in git
+--changed                Select current added/modified/untracked git files
+--since <revision>       Select changes from merge-base to HEAD plus current changes
 <path>                   Positional path filter: file or directory under root
 
 LCOV is discovered as *.info files under any directory named coverage below the
 root. Only entries with numeric CRAP gate; null-CRAP entries never fail.
 
-Exit codes: 0 gate passed; 1 usage or tool error (no report written);
+Exit codes: 0 scored gate passed or measurement only; 1 usage or tool error (no report written);
 2 threshold exceeded (report written, failures listed).
 --help                   Show this help`;
 
 function options(args) {
-  const result = { root: process.cwd(), threshold: 30, noCoverage: false, useExisting: false, changed: false, paths: [] };
+  const result = { root: process.cwd(), threshold: 30, noCoverage: false, useExisting: false, changed: false, since: null, paths: [] };
   for (let index = 0; index < args.length; index++) {
     const flag = args[index];
     if (flag === '--help' || flag === '-h') return { help: true };
     if (flag === '--no-coverage') result.noCoverage = true;
     else if (flag === '--use-existing-coverage') result.useExisting = true;
     else if (flag === '--changed') result.changed = true;
-    else if (flag === '--root' || flag === '--threshold') {
+    else if (flag === '--root' || flag === '--threshold' || flag === '--since') {
       const value = args[++index];
       if (!value || value.startsWith('--')) throw new Error(`${flag} requires a value. Run --help for usage.`);
       if (flag === '--root') result.root = path.resolve(value);
+      else if (flag === '--since') result.since = value;
       else {
         result.threshold = Number(value);
         if (!Number.isFinite(result.threshold) || result.threshold <= 0) throw new Error('--threshold must be a finite positive number.');
@@ -50,6 +52,7 @@ function options(args) {
     else result.paths.push(flag);
   }
   if (result.noCoverage && result.useExisting) throw new Error('--no-coverage and --use-existing-coverage cannot be combined. Choose one coverage mode.');
+  if (result.changed && result.since) throw new Error('--changed and --since cannot be combined. Choose one git selection mode.');
   return result;
 }
 
@@ -226,10 +229,10 @@ function analyze(text, relative) {
   return entries;
 }
 
-function changedPaths(root) {
-  const status = spawnSync('git', ['-C', root, 'status', '--porcelain', '-z'], { encoding: 'utf8' });
-  if (status.error) throw new Error(`--changed requires git, but it could not be run: ${status.error.message}. Install git or omit --changed.`);
-  if (status.status !== 0) throw new Error(`--changed requires a git repository and ${root} is not inside one. Run inside a git checkout or omit --changed.`);
+function changedPaths(root, flag = '--changed') {
+  const status = spawnSync('git', ['-C', root, 'status', '--porcelain', '-z', '--untracked-files=all'], { encoding: 'utf8' });
+  if (status.error) throw new Error(`${flag} requires git, but it could not be run: ${status.error.message}. Install git or omit ${flag}.`);
+  if (status.status !== 0) throw new Error(`${flag} requires a git repository and ${root} is not inside one. Run inside a git checkout or omit ${flag}.`);
   const top = spawnSync('git', ['-C', root, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' });
   const base = top.status === 0 ? top.stdout.trim() : root;
   const changed = new Set();
@@ -244,6 +247,20 @@ function changedPaths(root) {
     else if (!state.includes('D')) changed.add(file);
   }
   return [...changed].map(file => toPosix(path.relative(root, path.resolve(base, file))));
+}
+
+function sincePaths(root, revision) {
+  const current = changedPaths(root, '--since');
+  const resolve = spawnSync('git', ['-C', root, 'rev-parse', '--verify', '--end-of-options', `${revision}^{commit}`], { encoding: 'utf8' });
+  if (resolve.status !== 0) throw new Error(`--since requires a valid commit revision: ${revision}. ${resolve.stderr.trim()}`);
+  const merge = spawnSync('git', ['-C', root, 'merge-base', resolve.stdout.trim(), 'HEAD'], { encoding: 'utf8' });
+  if (merge.status !== 0) throw new Error(`--since could not find a merge-base with HEAD for ${revision}. ${merge.stderr.trim()}`);
+  const diff = spawnSync('git', ['-C', root, 'diff', '--name-only', '-z', '--diff-filter=ACMR', merge.stdout.trim(), 'HEAD'], { encoding: 'utf8' });
+  if (diff.status !== 0) throw new Error(`--since could not read committed changes: ${diff.stderr.trim()}`);
+  const top = spawnSync('git', ['-C', root, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' });
+  if (top.status !== 0) throw new Error(`--since could not locate the repository root: ${top.stderr.trim()}`);
+  const committed = diff.stdout.split('\0').filter(Boolean).map(file => toPosix(path.relative(root, path.resolve(top.stdout.trim(), file))));
+  return [...new Set([...committed, ...current])];
 }
 
 function round2(value) {
@@ -280,8 +297,8 @@ async function main() {
   const filters = opts.paths.map(arg => normalizeFilter(arg, opts.root));
   let files = (await sources(opts.root)).map(toPosix);
   if (filters.length) files = files.filter(file => filters.some(filter => matchesFilter(file, filter)));
-  if (opts.changed) {
-    const changed = new Set(changedPaths(opts.root));
+  if (opts.changed || opts.since) {
+    const changed = new Set(opts.since ? sincePaths(opts.root, opts.since) : changedPaths(opts.root));
     files = files.filter(file => changed.has(file));
   }
   const entries = [];

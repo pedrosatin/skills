@@ -12,7 +12,10 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const skillDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const hubScript = path.join(skillDir, '..', 'setup', 'scripts', 'generate-hub.mjs');
 
 const USAGE = `Usage: node scripts/board.mjs [options]
 
@@ -152,7 +155,7 @@ function guidance({ hasScratch, indexPath }) {
   const lines = [];
   if (hasScratch) {
     lines.push(`The .scratch/ directory exists, but the following file is missing: ${indexPath}.`);
-    lines.push('Run /setup (or `node ~/.agents/skills/setup/scripts/generate-hub.mjs`) to generate the Project Hub.');
+    lines.push(`Run /setup (or \`node ${hubScript}\`) to generate the Project Hub.`);
   } else {
     lines.push('This project has no .scratch/ directory.');
     lines.push('Run /setup to create .scratch/, the docs, and .scratch/index.html.');
