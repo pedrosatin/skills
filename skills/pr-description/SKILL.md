@@ -82,7 +82,7 @@ A missing screenshot does not invalidate a verification that already ran. Do not
 
 ## Visuals
 
-For a Summary visual of ownership, flow, or change shape, follow `../show-me/SKILL.md`.
+For a Summary visual of ownership, flow, or change shape, read `../show-me/references/visual-selection.md` directly. This shared reference does not invoke `/show-me`.
 
 ## Media lifecycle
 

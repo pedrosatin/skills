@@ -28,9 +28,11 @@ LCOV is discovered as `*.info` files under any directory named `coverage` below 
 
 Per-entry coverage prefers `DA:` line records inside the entry's line range (covered lines / total instrumented lines in range). When the file has no DA records in range, it falls back to binary `FNDA:` function hit counts (exact name or last `.`/`#` segment match). Entries whose file has no LCOV section keep null coverage.
 
-## `--changed` gate
+## Git selection
 
 `--changed` limits analysis to files added, modified, untracked, or unmerged in git. The root must be inside a git repository. Deletions are excluded. Renamed files count under their new path. The filter intersects with positional path arguments.
+
+`--since <revision>` selects files changed from the revision’s merge-base with HEAD through HEAD, plus current staged, unstaged, and untracked changes. Use it for committed delivery work and subsequent corrections. It excludes deletions, uses rename destinations, and intersects positional filters. Choose either `--since` or `--changed`.
 
 ## Report
 

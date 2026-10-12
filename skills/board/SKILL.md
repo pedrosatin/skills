@@ -12,7 +12,7 @@ Open the project's Project Hub: the `index.html` generated inside `.scratch/`.
 
 ### 1. Run the script
 
-From this skill directory: `node scripts/board.mjs`. From elsewhere, resolve `<board>` as the `board` folder next to this skill: `node <board>/scripts/board.mjs`. Flags live in `--help`.
+Resolve `<board>` as the folder containing this skill and `<project-root>` as the repository the user requested. Run `node <board>/scripts/board.mjs --root <project-root>` from any directory. Other flags live in `--help`.
 
 ### 2. Interpret the result
 

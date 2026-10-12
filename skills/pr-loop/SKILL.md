@@ -27,6 +27,7 @@ If usage limits, missing subagent tools, or a persistent subagent failure preven
 - Take the items from the operator's list or the target repo's local tracker (`.scratch/<feature>/issues/`). Confirm the list and order before the first iteration.
 - Run `git fetch origin` and create a clean worktree with `git worktree add -b feat/<slug> ~/.cache/worktrees/<slug> origin/main`. If a leftover worktree exists from a previous iteration, enter it and inspect `git status` and `git log --oneline -3`.
 - Discover the validation commands in each affected package.json (test, typecheck, lint). Include them in every subagent prompt, including a possible cleaner correction pass.
+- Record the iteration base SHA before implementation; keep it fixed through correction commits.
 - Define the scope, exclusions, and completion criteria in a few sentences.
 - Define the **product behavior to prove** after implementation: UI route/flow, API, CLI scenario, or N/A for docs/chore with no runtime surface. Record how success looks (observable result, not only "tests pass").
 - For visual UI work, capture **before** from the base revision (`origin/main` or the PR base) or reuse an identified earlier capture. Do this before the implementation commit, or from a separate checkout of the base. After implementation, capture **after** on the feature branch. Label each file.
@@ -58,17 +59,17 @@ FINAL REPORT: changes by file, test counts, commit hash, omitted work with reaso
 
 ## Step 2, clean-crap gate (main agent)
 
-Run `../clean-crap/SKILL.md` against the worktree. Resolve `<clean-crap>` as the `clean-crap` folder next to this skill. Gate with `--changed`:
+Run `../clean-crap/SKILL.md` against the worktree. Resolve `<clean-crap>` as the `clean-crap` folder next to this skill. Select the committed iteration diff and any uncommitted changes with `--since <BASE_SHA>`:
 
 ```
-node <clean-crap>/scripts/clean-crap.mjs --root <WORKTREE> --changed [--threshold N]
+node <clean-crap>/scripts/clean-crap.mjs --root <WORKTREE> --since <BASE_SHA> [--threshold N]
 ```
 
-- Exit 0: advance to step 2a.
+- Exit 0: confirm the report accounts for the iteration's changed JS/TS sources and each analyzed function has numeric CRAP before advancing. For a slice with no eligible JS/TS sources, record N/A.
 - Exit 2: run the correction pass below before product verification or review.
 - Exit 1: fix the invocation or environment. A syntax error in changed sources goes back to the implementation scope. Never advance past the cleaner while the gate errors.
 
-If the gate reports no LCOV and step 0 discovered a coverage command, run that command once and re-run the gate. Record complexity-only gating in the iteration report when the project has no coverage infrastructure. Add `.metrics/` to the target project's ignore rules in the next correction commit when missing.
+If the gate reports no LCOV and step 0 discovered a coverage command, run that command once and re-run the gate. Null CRAP means the threshold was not evaluated, including when coverage is missing for only some functions. When coverage cannot be supplied, report complexity as measurement only and obtain an explicit cleaner skip for this slice. Add `.metrics/` to the target project's ignore rules in the next correction commit when missing.
 
 ### Correction pass after exit 2
 
@@ -193,7 +194,7 @@ Stop when the list ends, the operator requests a pause, or an item requires an e
 ## Check before advancing
 
 - Step 1 → 2: worktree has a local commit, tests pass, and the scope is delivered.
-- Step 2 → 2a: the clean-crap gate exited 0 (after at most two correction rounds), or the operator explicitly skipped the cleaner for this slice.
+- Step 2 → 2a: the report covers the iteration diff with numeric CRAP and exit 0 (after at most two correction rounds), or N/A for no eligible sources or an explicit operator skip is recorded.
 - Step 2a → 2b: product verification succeeded (or N/A was recorded); a failed scenario was fixed before drafting.
 - Step 2b → 3: `<worktree>/.scratch/pr-description/body.md` exists and reflects observed checks.
 - Step 3 → 4: review conclusions have become numbered instructions with exact locations, or no changes are needed and you skip to step 4a.

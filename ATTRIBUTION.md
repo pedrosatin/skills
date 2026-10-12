@@ -17,9 +17,9 @@ revision when replacing a package.
 
 ## Local adaptations
 
-`show-me` isolates temporary HTML artifacts under `.scratch/show-me/` to protect repository hygiene, supports platform openers (`open` on macOS, `xdg-open` on Linux, `start` on Windows), and integrates with `archify` for formal architecture diagrams. One English Mermaid warning: a raw Mermaid fence does not render in the operator's terminal CLI. Formal architecture diagrams follow `../archify/SKILL.md`. Do not restore a second Mermaid ban or the Portuguese "NUNCA emita blocos mermaid" line.
+`show-me` keeps its visual selection and examples in `references/visual-selection.md`, shared directly with pr-description. This local split fixes the user-only invocation dependency. It isolates temporary HTML artifacts under `.scratch/show-me/` to protect repository hygiene, supports platform openers (`open` on macOS, `xdg-open` on Linux, `start` on Windows), and integrates with `archify` for formal architecture diagrams. One English Mermaid warning: a raw Mermaid fence does not render in the operator's terminal CLI. Formal architecture diagrams follow `../archify/SKILL.md`. Do not restore a second Mermaid ban or the Portuguese "NUNCA emita blocos mermaid" line.
 
-`pr-description` adapts Matt Pocock's `pr` body/evidence pattern into draft and publish modes with `gh-axi` create/edit, idempotent head lookup, GitHub-only `--attach` media, and an execution/capture/upload failure taxonomy. It points at the local `show-me` skill for visuals instead of vendoring that menu. See `skills/pr-description/CREDITS.md`. Source notices stay in the skill package and must not appear as PR/commit authorship footers.
+`pr-description` adapts Matt Pocock's `pr` body/evidence pattern into draft and publish modes with `gh-axi` create/edit, idempotent head lookup, GitHub-only `--attach` media, and an execution/capture/upload failure taxonomy. It reads the shared `show-me/references/visual-selection.md` for visuals without invoking the user-only skill. See `skills/pr-description/CREDITS.md`. Source notices stay in the skill package and must not appear as PR/commit authorship footers.
 
 `grilling` uses each agent's native question interface instead of waiting for
 prose replies, and adds a repo-only close step that writes settled terms into
@@ -43,7 +43,7 @@ fails, ask the operator and wait before `uv tool install graphifyy` /
 the package: inspect `uv tool dir` for an already-installed interpreter; do
 not run `uv tool run --from graphifyy`. English question: "Graphify is not
 installed in this environment. Install it with 'uv tool install graphifyy'
-or 'pip install graphifyy'?" Keep the rest of the pipeline in SKILL.md.
+or 'pip install graphifyy'?" Keep the rest of the pipeline in SKILL.md. Semantic dispatch uses a unique chunk directory and an explicit current-run path manifest; collection validates each chunk, skips failures, and aborts when more than half fail. Preserve that collector overlay.
 
 `research` stays short and model-invoked. Overlay: primary sources; one
 Markdown file; each claim cites the owning source; save path follows the

@@ -28,7 +28,7 @@ gh-axi pr view <number> --full --comments
 gh-axi api /repos/{owner}/{repo}/pulls/<number>
 ```
 
-`--full` keeps the complete diff and body; the default truncates. `pr view` supplies title, body, draft, author, and comments. `pr list` and `pr view` omit mergeability and git refs; the REST pull object supplies `mergeable`, `mergeable_state`, `head.ref`, and `base.ref`. Treat `mergeable: false` or `mergeable_state: dirty` as conflicting. If `mergeable` is null, GitHub has not computed it yet: retry once, and skip merge while it stays null.
+`--full` keeps the complete diff and body; the default truncates. `pr view` supplies title, body, draft, author, and comments. `pr list` and `pr view` omit mergeability and git refs; the REST pull object supplies `mergeable`, `mergeable_state`, `head.ref`, `head.sha`, and `base.ref`. Record the reviewed head SHA. Treat `mergeable: false` or `mergeable_state: dirty` as conflicting. If `mergeable` is null, GitHub has not computed it yet: retry once, and skip merge while it stays null.
 
 ### 3. Cross-PR conflict detection
 
@@ -53,7 +53,7 @@ When in doubt → **do not merge**. Leave draft + comment.
 
 For every PR you intend to merge, first attempt `gh-axi pr update-branch <number>`.
 
-If `update-branch` succeeds → proceed to merge.
+After any branch update or conflict resolution, fetch the resulting head SHA, inspect the new diff, and run the target project's required checks against that head. Repeat the review criteria for the updated diff; record the verified SHA. If checks fail or cannot be run, leave the PR unmerged with the specific blocker.
 
 If `update-branch` fails with conflicts → **attempt to resolve them yourself** before giving up:
 
@@ -82,12 +82,13 @@ Only leave a conflict for the author when:
 
 Run `../publication-hygiene/SKILL.md` on squash `--subject` and `--body`, and on any comment body, before calling GitHub.
 
-**To merge a draft PR:**
+**To merge a verified PR:**
+
+Re-read the REST pull object immediately before merging: require `head.sha` to equal the verified SHA and mergeability to satisfy step 4. If the SHA changed, return to review and checks. For a draft, mark it ready first; for an already-ready PR, omit `pr ready`. The merge command binds the action to the verified head:
 
 ```bash
 gh-axi pr ready <number>
-gh-axi pr update-branch <number>
-gh-axi pr merge <number> --squash --subject "<type>(<scope>): <short description>" --body "<body>"
+gh-axi pr merge <number> --match-head-commit <verified-sha> --squash --subject "<type>(<scope>): <short description>" --body "<body>"
 ```
 
 Never pass `--admin`. Merge only what GitHub already lets merge normally (`mergeable_state` is `clean`). If the merge is refused by branch protection — required reviews, required checks not yet green, or an unmet gate — leave the PR as-is and comment that it's ready but blocked on `<the specific gate>`, for the author to merge.
