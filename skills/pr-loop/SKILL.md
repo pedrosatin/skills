@@ -184,7 +184,7 @@ Follow `../pr-description/SKILL.md` in **draft** mode again so `<worktree>/.scra
 ## Step 6, next item
 
 - Write versioned ADRs under `docs/adr/` in the correction commit when the item settled a decision that qualifies.
-- Update local tracker status in `.scratch/<feature>/issues/`. Do not commit `.scratch/` tracker files unless the target repo versions them. Refresh the Project Hub with setup's generator (`node ../setup/scripts/generate-hub.mjs`).
+- Update local tracker status in `.scratch/<feature>/issues/`. Do not commit `.scratch/` tracker files unless the target repo versions them. Refresh the Project Hub: resolve `<setup>` as the `setup` folder next to this skill, then `node <setup>/scripts/generate-hub.mjs <project-root>`.
 - Report the iteration briefly: scope, PR/commit, test counts, and recorded follow-ups.
 - Return to step 0 for the next item.
 

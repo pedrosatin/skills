@@ -23,7 +23,7 @@ Check with the user that these test boundaries match their expectations.
 
 4. Write the spec using the template below, then publish it to the project issue tracker. For local tracking, save it to `.scratch/<feature-slug>/spec.md`. Apply the `ready-for-agent` triage label - no need for additional triage.
 
-5. Refresh the Project Hub with setup's generator (`node ../setup/scripts/generate-hub.mjs`, owned by `/setup`). Provide the user with the clickable dashboard link (`file://.../.scratch/index.html`).
+5. Refresh the Project Hub with setup's generator: resolve `<setup>` as the `setup` folder next to this skill, then `node <setup>/scripts/generate-hub.mjs <project-root>` (owned by `/setup`). Provide the user with the clickable dashboard link (`file://.../.scratch/index.html`).
 
 <spec-template>
 

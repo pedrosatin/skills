@@ -68,7 +68,7 @@ Do NOT close or modify any parent issue.
 
 ### 6. Refresh the project dashboard
 
-For local tracking, refresh the Project Hub with setup's generator (`node ../setup/scripts/generate-hub.mjs`, owned by `/setup`). Provide the user with the clickable dashboard link (`file://.../.scratch/index.html`).
+For local tracking, refresh the Project Hub with setup's generator: resolve `<setup>` as the `setup` folder next to this skill, then `node <setup>/scripts/generate-hub.mjs <project-root>` (owned by `/setup`). Provide the user with the clickable dashboard link (`file://.../.scratch/index.html`).
 
 ### 7. Ticket execution guidance
 

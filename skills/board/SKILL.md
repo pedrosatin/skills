@@ -25,7 +25,6 @@ agrees, run `/setup` next.
 
 ### 3. Hub HTML is generated
 
-`.scratch/index.html` comes from setup's generator
-(`node ../setup/scripts/generate-hub.mjs`, owned by `/setup`).
+`.scratch/index.html` comes from setup's generator. Resolve `<setup>` as the `setup` folder next to this skill, then `node <setup>/scripts/generate-hub.mjs <project-root>` (owned by `/setup`).
 Visual or behavioral changes belong in that generator. Point operators at
 `/setup` and its design contract.

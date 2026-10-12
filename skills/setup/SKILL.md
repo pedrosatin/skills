@@ -66,13 +66,13 @@ After confirmation:
 
 ### 4. Generate the Project Hub dashboard
 
-This skill owns hub regeneration. From this skill directory:
+This skill owns hub regeneration. Resolve `<setup>` as this skill's directory (the folder that contains this SKILL.md). Always pass the target repository:
 
 ```bash
-node scripts/generate-hub.mjs [<repository-path>]
+node <setup>/scripts/generate-hub.mjs <project-root>
 ```
 
-Sibling skills run `node ../setup/scripts/generate-hub.mjs [<repository-path>]`. Default repository is the current working directory.
+Sibling skills resolve `<setup>` as the `setup` folder next to themselves. A cwd-relative `../setup/scripts/generate-hub.mjs` follows the terminal, not the skill, and fails from the project root.
 
 If the user supplied `--docs`, pass `--docs`. Fixes and visual changes belong in this generator; regenerate `.scratch/index.html` instead of patching it.
 

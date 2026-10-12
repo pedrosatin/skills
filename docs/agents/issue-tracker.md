@@ -25,7 +25,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 
 An interactive Project Hub dashboard is maintained at `.scratch/index.html`.
 
-Refresh it with the `/setup` generator (`scripts/generate-hub.mjs` in the setup skill). Default repository is this project's root.
+Refresh it with `/setup`: resolve the setup skill directory, then `node <setup>/scripts/generate-hub.mjs <this-repository-root>`.
 
 ## When a skill says "publish to the issue tracker"
 
