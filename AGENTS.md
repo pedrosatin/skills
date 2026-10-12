@@ -12,4 +12,4 @@ The interactive dashboard is at `.scratch/index.html`.
 See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
-Use the single-context convention (`docs/adr/`). See `docs/agents/domain.md`.
+Use the single-context convention (`GLOSSARY.md`, `docs/adr/`). See `docs/agents/domain.md`.
