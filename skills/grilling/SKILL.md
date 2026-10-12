@@ -41,3 +41,12 @@ Each round the user answers reshapes the tree: settled decisions push the fronti
 Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), dispatch a sub-agent to find it; don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now. The _decisions_ are the user's: put each to them and wait.
 
 The session is done when the frontier is empty: every branch of the design tree visited, nothing left silently assumed. Do not act on it until the user confirms you have reached a shared understanding.
+
+## Capture domain docs at the close (repo sessions only)
+
+Do this **after** the frontier is empty and **before** you act on the plan. Skip it when there is no project working directory, or when the session was only a thought exercise with nothing to persist.
+
+1. Read the project's domain convention if present (`docs/agents/domain.md`). Prefer that file over this section when they conflict.
+2. **Glossary.** For each project-specific term the session settled (canonical name + short definition + rejected synonyms), update `GLOSSARY.md` at the repo root. Create the file lazily on the first term. If `GLOSSARY-MAP.md` exists, write into the mapped context glossary instead. Keep entries as vocabulary only: what a thing *is*, one or two sentences, no implementation detail, no spec prose.
+3. **ADRs.** Offer an ADR under `docs/adr/` only when **all three** hold: hard to reverse, surprising without context, and the result of a real trade-off. Create `docs/adr/` lazily. Most sessions produce zero ADRs; that is fine. Use the short form in `docs/agents/domain.md` (title + 1–3 sentences).
+4. Tell the user what you wrote (or that nothing qualified). Then wait for confirmation of shared understanding before acting. Hand the same conversation to `/to-spec` when the next step is a spec.
