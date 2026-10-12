@@ -12,10 +12,10 @@ The issue tracker and domain docs should have been configured for this repo. If 
 
 1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching. Follow `docs/agents/domain.md` when present.
 
-2. **Domain catch-up (before drafting the spec).** Scan the conversation for project-specific terms and hard decisions that settled but are not yet on disk:
-   - Update `GLOSSARY.md` (or the mapped context glossary if `GLOSSARY-MAP.md` exists) with missing settled terms. Vocabulary only: canonical name, one or two sentences of what it *is*, rejected synonyms under `_Avoid_`. Create the file lazily. Do not dump implementation detail or spec prose into the glossary.
-   - Offer an ADR under `docs/adr/` only when all three hold: hard to reverse, surprising without context, and a real trade-off. Create the directory lazily. Skip quietly when nothing qualifies.
-   - If the grilling close already wrote these files, verify they match the conversation and fill any gaps; do not re-interview.
+2. Domain catch-up (before drafting the spec). Scan the conversation for project-specific terms and hard decisions that settled but are not yet on disk. This step must not interview the user:
+   - Write missing settled terms into `GLOSSARY.md` (or the mapped context glossary if `GLOSSARY-MAP.md` exists). Vocabulary only: canonical name, one or two sentences of what it *is*, rejected synonyms under `_Avoid_`. Create the file lazily. If the map does not resolve a path, fall back to root `GLOSSARY.md` and note that in the catch-up summary. Do not dump implementation detail or spec prose into the glossary. If a teach-style glossary already owns the path, leave it alone and use the product glossary path from `docs/agents/domain.md`.
+   - Write an ADR under `docs/adr/` for each conversation decision that meets all three conditions (hard to reverse, surprising without context, real trade-off) and is not already recorded. Create the directory lazily. Skip quietly when nothing qualifies. Do not ask whether to write; list every path you created in the catch-up summary.
+   - If the grilling close already wrote these files, verify they match the conversation and fill any gaps. Still do not re-interview.
 
 3. Sketch the **test boundaries**: the external surfaces where you will observe the feature's behavior without opening internal implementation. Prefer existing boundaries. Prefer the highest (outermost) boundary that still gives confidence. Propose new ones only when needed, and keep the count low. Ideally one.
 

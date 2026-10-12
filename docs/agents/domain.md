@@ -38,20 +38,20 @@ Number files as `NNNN-slug.md`. Keep the body short:
 ```md
 # {Short title of the decision}
 
-{1–3 sentences: context, choice, and why.}
+{1-3 sentences: context, choice, and why.}
 ```
 
-Offer an ADR only when **all three** are true:
+Write or confirm an ADR only when all three are true:
 
-1. **Hard to reverse** — changing your mind later is costly
-2. **Surprising without context** — a future reader would wonder why it is this way
-3. **Real trade-off** — genuine alternatives existed and one was chosen for specific reasons
+1. Hard to reverse: changing the decision later is costly.
+2. Surprising without context: a future reader would wonder why it is this way.
+3. Real trade-off: genuine alternatives existed and one was chosen for specific reasons.
 
 If any condition is missing, skip the ADR. Optional sections (Status, Considered Options, Consequences) only when they add real value.
 
 ## Consumer rules
 
-- `/grilling` (repo sessions): after the frontier is empty, capture settled terms into `GLOSSARY.md` and offer ADRs that clear the bar, before acting on the plan.
-- `/to-spec` must use the glossary vocabulary, respect ADRs in the area it touches, and catch up any settled terms or qualifying ADRs from the conversation that are not on disk yet.
-- `/to-tickets` must respect existing architecture decisions and use the same vocabulary.
+- grilling (repo sessions): after the frontier is empty and shared understanding is confirmed, write settled terms into `GLOSSARY.md`, and use the harness question UI to confirm each qualifying ADR before writing it.
+- `to-spec` must use the glossary vocabulary, respect ADRs in the area it touches, and write any missing settled terms or qualifying ADRs from the conversation without interviewing again.
+- `to-tickets` must respect existing architecture decisions and use the same vocabulary.
 - When an agent makes a non-trivial architectural choice outside those flows, it should propose recording an ADR in `docs/adr/` if the three conditions hold.
