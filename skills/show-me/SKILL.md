@@ -1,10 +1,10 @@
 ---
 name: show-me
-description: Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts.
+description: Visual sketches, call trees, and concise diagrams for the current question.
 disable-model-invocation: true
 ---
 
-Help the user understand the current topic of conversation visually. Skip the preamble and keep prose brief. Pick the smallest view that makes the key point clear.
+Help the user understand the current topic of conversation visually. Skip the preamble and keep prose brief. The work is done when the smallest view that answers the current question is on the page.
 
 - Show logic or an algorithm as pseudocode:
 
@@ -44,7 +44,7 @@ src/
 └── transport/      # sends API requests
 ```
 
-- Show component interaction, control flow, or data flow with **Unicode Box-Drawing / ASCII** (avoid raw ```mermaid blocks in terminal CLIs, as terminal emulators do not render Mermaid):
+- Show component interaction, control flow, or data flow with **Unicode Box-Drawing / ASCII**:
 
 Sequence flow:
 ```text
@@ -123,9 +123,8 @@ function expandSkill(command: string): string {
 }
 ```
 
-- For a visual UI, layout, state comparison, or concept too dense for Mermaid:
-  - If it is a formal system architecture, service boundary map, data pipeline, or infrastructure diagram intended for durable documentation, delegate or recommend `archify` instead of ad-hoc HTML.
-  - If it is an ephemeral UI mockup or concept diagram, write one focused HTML file (matching colors, typography, spacing, real labels, and data) under `.scratch/show-me/` or a temporary directory to preserve working tree hygiene. Open it using the system opener (`open` on macOS, `xdg-open` on Linux, `start` on Windows):
+- For a formal system architecture, service boundary map, data pipeline, or infrastructure diagram intended for durable documentation, follow `../archify/SKILL.md`.
+- For a visual UI, layout, state comparison, or ephemeral concept too dense for terminal text, write one focused HTML file (matching colors, typography, spacing, real labels, and data) under `.scratch/show-me/` or a temporary directory to preserve working tree hygiene. Open it using the system opener (`open` on macOS, `xdg-open` on Linux, `start` on Windows):
 
 ```bash
 # macOS: open <file> | Linux: xdg-open <file> | Windows: start <file>
@@ -134,8 +133,6 @@ xdg-open .scratch/show-me/show-me-{description}.html
 
 ### Guidance
 
-- **NUNCA emita blocos ```mermaid crus no chat:** O operador trabalha em terminal CLI (Claude Code, agy, Alacritty, Foot) que não compila Mermaid em SVG. Use sempre diagramas em texto puro (Unicode Box-Drawing, árvores ASCII, tabelas).
-- Place each visual next to the short text it supports. Keep only the calls, files, props, states, and boundaries needed to answer the user's current question or the options to resolve the current discussion point.
-- Se a visualização for densa demais para caber em texto no terminal, gere um HTML efêmero em `.scratch/show-me/` e abra com `xdg-open` (ou use `/archify` para arquiteturas formais).
-- You may use one of these, you may use several, it is unlikely you will use all of them. Use your judgement and don't overwhelm the user.
-- Respond in the user's conversational language (e.g. Brazilian Portuguese).
+- Draw diagrams as Unicode box-drawing, ASCII trees, or tables. A raw Mermaid fence does not render in the operator's terminal CLI.
+- Place each visual next to the short text it supports.
+- Reply in the user's conversational language.

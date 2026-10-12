@@ -62,6 +62,7 @@ Vendored skills and tools (see `ATTRIBUTION.md`):
 - `graphify`: knowledge graphs and codebase navigation, from Graphify-Labs, Apache-2.0.
 - `archify`: interactive HTML/SVG architecture diagrams, from tt-a1i.
 - `grilling`, `to-spec`, `to-tickets`, `research`, `teach`: Matt Pocock's planning and learning workflow (local adaptations: harness question UI; grilling close + to-spec catch-up for `GLOSSARY.md` / ADRs; see `ATTRIBUTION.md`).
+- `writing-for-agents`: rubric for documents an agent consumes (skills, `AGENTS.md`, `CLAUDE.md`), from Matt Pocock.
 - `humanizer`: prose editing, from Siqi Chen.
 - `show-me`: concise visual sketches for conversation and PR summaries, from HumanLayer (local path and opener adaptations; see `ATTRIBUTION.md`).
 

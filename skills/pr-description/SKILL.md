@@ -25,7 +25,7 @@ Infer from the operator's wording. Bare `/pr-description` with no publish verb a
 1. Read the repo PR template (for example `.github/PULL_REQUEST_TEMPLATE.md`) and language conventions. Map onto the template when present.
 2. Collect the diff (`git diff <base>...<head>`), commits, and **observed** checks from the caller (commands, exits, notes, temp media paths). Do not invent results.
 3. Write the body to `<repo>/.scratch/pr-description/body.md` (create the directory). Do not commit this file.
-4. Apply the project's writing skill (`../unslop-br/SKILL.md` for PT-BR, or an English writing skill such as `humanizer`). Keep code identifiers and quoted material intact.
+4. Apply `../unslop-br/SKILL.md` for PT-BR prose, or `../humanizer/SKILL.md` for English. Keep code identifiers and quoted material intact. Follow `../publication-hygiene/SKILL.md` for provenance in the body.
 5. Report the body path and which Evidence claims are observed vs planned vs N/A.
 
 ## Publish
@@ -34,7 +34,7 @@ Infer from the operator's wording. Bare `/pr-description` with no publish verb a
 2. Run `../publication-hygiene/SKILL.md` on the body, title, and diff. Fix findings before calling GitHub.
 3. Caller must have pushed the branch when creating a new PR.
 4. Resolve the target PR:
-   - If the operator named `#N` or a URL, edit that PR.
+   - If the operator named `#N` or a URL, fetch it with `gh-axi pr view <n> --full` and `gh-axi api /repos/{owner}/{repo}/pulls/<n>`. Edit it only when `head.repo` matches this checkout's remote and `head.ref` matches the branch whose diff you drafted. If repo, base, or head disagree, stop and ask. Do not publish a local diff onto a different PR.
    - Else list open PRs for this `head` (and `base` when known) with `gh-axi pr list`. If one exists, **edit it**. Only `pr create` when none exists.
 5. Create or edit with `gh-axi` (requires `gh >= 2.99.0` for `--attach`):
 
@@ -43,7 +43,9 @@ gh-axi pr create --title "..." --body-file <repo>/.scratch/pr-description/body.m
 gh-axi pr edit <n> --title "..." --body-file <repo>/.scratch/pr-description/body.md [--attach 'path#alt']...
 ```
 
-6. Confirm the remote body (and attachments). Delete temp media only after confirm. On upload failure, keep the temp file for retry; do not commit it.
+On a later edit of the same PR, read the remote body first (`gh-axi pr view <n> --full`). Keep existing GitHub asset URLs. Re-attach only new local files. Do not `--body-file` a draft that still contains deleted temp paths.
+
+6. Confirm the remote body (and attachments) with `gh-axi pr view <n> --full`. Copy that confirmed remote body, with GitHub asset URLs, into `<repo>/.scratch/pr-description/body.md`. Delete temp media only after that copy. On upload failure, keep the temp file for retry; do not commit it.
 7. When `link_pull_request` is available in the harness, link the PR URL for the thread.
 8. Never merge, close, or approve from this skill.
 
@@ -78,21 +80,18 @@ Default sections when the repo has no template (headings in the project language
 
 A missing screenshot does not invalidate a verification that already ran. Do not claim before/after UI proof unless the GitHub asset is present.
 
-### Prose bans in the body
-
-No AI attribution, skill/model names, session or worktree paths, or What/Why/Result agent footers. No decorative dashes, mechanical bold-label lists, emojis, or flattery.
-
 ## Visuals
 
-Prefer a visual in Summary when it clarifies ownership, flow, or the change shape. Reuse the kinds from `../show-me/SKILL.md`: pseudocode, call/component/file trees, ASCII/box-drawing flows, semantic diffs. Prefer ASCII over Mermaid in terminal harnesses. Do not paste the full show-me catalog into every PR.
+For a Summary visual of ownership, flow, or change shape, follow `../show-me/SKILL.md`.
 
 ## Media lifecycle
 
 1. Capture outside the repo (harness temp or `/tmp`).
 2. Keep through draft review when useful.
 3. On publish, `--attach '<path>#<alt>'` (repeatable).
-4. After the PR shows the assets, delete local temps.
+4. After `pr view` shows the assets, replace the local body with the remote body (GitHub URLs), then delete local temps.
 5. On upload failure, retain for retry; never commit media.
+6. Later edits start from the remote body so published URLs survive.
 
 ## Non-goals
 

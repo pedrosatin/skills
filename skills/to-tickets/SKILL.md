@@ -68,17 +68,13 @@ Do NOT close or modify any parent issue.
 
 ### 6. Refresh the project dashboard
 
-For local tracking, update the visual Kanban board by running:
-```bash
-node ~/.agents/skills/setup/scripts/generate-hub.mjs
-```
-Provide the user with the clickable dashboard link (`file://.../.scratch/index.html`).
+For local tracking, refresh the Project Hub with setup's generator (`node ../setup/scripts/generate-hub.mjs`, owned by `/setup`). Provide the user with the clickable dashboard link (`file://.../.scratch/index.html`).
 
 ### 7. Ticket execution guidance
 
 When an agent is asked to implement tickets from this tracker:
 - Prefer executing each ticket in a dedicated subagent with a fresh context window.
-- The main agent orchestrates: picks the unblocked ticket from the frontier, reviews the subagent's changes against criteria, marks it `resolved`, and refreshes the dashboard.
+- The main agent orchestrates: picks the unblocked ticket from the frontier, reviews the subagent's changes against criteria, marks it `resolved`, and refreshes the Project Hub (setup's generate-hub).
 
 <local-ticket-template>
 

@@ -16,7 +16,7 @@ Any change to the layout or interface controls must preserve these tasks. Decora
 
 - Single-file output. One `.scratch/index.html` per repository.
 - Offline. No CDN and no external CSS, JavaScript, or font fetches at runtime.
-- Idempotent regeneration. Running `node scripts/generate-hub.mjs`, or the installed path `~/.agents/skills/setup/scripts/generate-hub.mjs`, produces the same visual contract from the Markdown in `.scratch/`.
+- Idempotent regeneration. Running `node scripts/generate-hub.mjs` from the setup skill directory, or `node ../setup/scripts/generate-hub.mjs` from a sibling skill, produces the same visual contract from the Markdown in `.scratch/`.
 - Do not edit `.scratch/index.html` by hand. Make bug fixes and visual improvements in the `setup` skill's generator. Manual patches disappear on the next regeneration through `/setup`, `/to-tickets`, or a direct script invocation.
 
 ## Markdown as a document

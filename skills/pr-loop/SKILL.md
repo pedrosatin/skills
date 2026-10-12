@@ -1,40 +1,40 @@
 ---
 name: pr-loop
-description: "Deliver backlog items one by one with subagents (implement, clean, review, correct), product verification, pr-description draft/publish, then merge with authorization. Use only when asked via '/pr-loop', 'run the delivery loop', 'roda o loop de entrega', 'fluxo completo com subagents', or 'trabalha a lista do roadmap com review e correção'. Not for a standalone PR or implementation request."
+description: "Deliver one backlog item through /pr-loop: implement, clean, verify, review, correct, then publish and merge with authorization."
+disable-model-invocation: true
 ---
 
-# pr-loop
+# /pr-loop
 
-Deliver one backlog item per iteration through preparation, implementation by a subagent, the clean-crap complexity-and-coverage gate, product verification, a `pr-description` draft, code and prose review by a second subagent, corrections by a third subagent, re-verification, and Git publication and merge by the main agent. Each step depends on the previous one, so the subagents run sequentially. The order is implement → cleaner → verify → draft PR body → review → correct → re-verify → publish.
-
-The main agent alone performs pushes, rebases, force pushes, merges, and GitHub operations (including `pr-description` publish). Subagents write code and create local commits. The main agent has the full conversation and the operator's authorization for external actions.
+Deliver one backlog item per iteration. Subagents run sequentially (implement → cleaner → review → correct). The main agent owns product verification, `pr-description` draft and publish, push, rebase, force-push, merge, and GitHub. Subagents write code and create local commits.
 
 ## Invariants for each iteration
 
-1. Merging requires authorization. Requesting the loop authorizes work through opening a PR. Each merge requires authorization in the conversation unless the operator approved the entire batch beforehand, for example "merge everything", "mescla tudo", or "vai até o fim".
-2. Commits, PRs, and issues must have no AI attribution: no Co-authored-by, "Generated with", or model attribution. Author and committer are always the human operator; never use --author or GIT_AUTHOR/GIT_COMMITTER variables.
+1. Merging requires authorization. Requesting the loop authorizes work through opening a PR. Each merge requires authorization in the conversation unless the operator approved the entire batch beforehand (for example "merge everything").
+2. Author and committer are always the human operator (`git config user.name` / `user.email`). Never set `--author` or `GIT_AUTHOR_*` / `GIT_COMMITTER_*`. Provenance is owned by `../publication-hygiene/SKILL.md`.
 3. Tests and typecheck must pass before each commit. Discover the commands in step 0. If a package has no tests, the implementer adds them following the repo's conventions.
-4. Worktrees ficam em disco (`~/.cache/worktrees`). Um worktree pode ser retomado entre sessões; sua branch deve estar no origin antes de considerar a iteração finalizada. Retome com `git worktree add -b <branch> ~/.cache/worktrees/<slug> origin/<branch>`, ou inicie de origin/main caso não exista branch remota.
+4. Worktrees stay on disk at `~/.cache/worktrees` (not `/tmp`). A worktree can be resumed across sessions; its branch must be on origin before the iteration is finished. Resume with `git worktree add -b <branch> ~/.cache/worktrees/<slug> origin/<branch>`, or start from `origin/main` when no remote branch exists.
 5. Use `gh-axi` for GitHub. Read TOON output without piping it to jq.
-6. Follow the target project's language conventions for commits, PRs, docs, comments, and UI strings. Use the user's language for conversation. For PT-BR prose, apply `../unslop-br/SKILL.md`. For English prose, use an installed English writing skill such as `humanizer`. PR bodies follow `../pr-description/SKILL.md`. Do not apply Portuguese vocabulary rules to other languages.
+6. Follow the target project's language conventions for commits, PRs, docs, comments, and UI strings. Conversation uses the user's language. For PT-BR prose, apply `../unslop-br/SKILL.md`. For English prose, apply `../humanizer/SKILL.md`. PR bodies follow `../pr-description/SKILL.md`. Do not apply Portuguese vocabulary rules to other languages.
 7. For checks through rtk, use `pnpm -C <pkg> <script>`. rtk does not yet forward `--filter` to `tsc`; `pnpm --filter <pkg> <script>` can run the compiler at the monorepo root, print help, and exit 1 as a false typecheck failure. A subagent interrupted by a usage limit or timeout may leave completed work uncommitted: inspect `git status` and `git diff` before starting over.
 
 ## When subagents are unavailable
 
-If usage limits, missing subagent tools, or a persistent subagent failure prevent delegation, run steps 1 through 4 sequentially in the main conversation, including the cleaner correction pass, product verification, and `pr-description` drafts. Keep the same scope, checks, and attribution rules. Review the full diff, verify in the code the facts assumed by the tests (helpers, seeds, counts), and audit each quoted passage before committing. Self-review requires extra care because it lacks a fresh reader.
+If usage limits, missing subagent tools, or a persistent subagent failure prevent delegation, run steps 1 through 4 in the main conversation, including the cleaner correction pass, product verification, and `pr-description` drafts. Review the full diff, verify in the code the facts assumed by the tests (helpers, seeds, counts), and audit each quoted passage before committing.
 
 ## Step 0, prepare the item
 
-- Take the items from the repo roadmap (in todo-jarvis, `docs/05-roadmap.md` and `docs/06-questoes-abertas.md`) or the operator's list. Confirm the list and order before the first iteration.
-- Run `git fetch origin` e crie um worktree limpo com `git worktree add -b feat/<slug> ~/.cache/worktrees/<slug> origin/main`. O diretório `~/.cache/worktrees` fica no disco (não consome tmpfs/RAM e permite hardlinks do pnpm store). Se um worktree remanescente existir de iteração anterior, entre nele e inspecione `git status` e `git log --oneline -3`.
+- Take the items from the operator's list or the target repo's local tracker (`.scratch/<feature>/issues/`). Confirm the list and order before the first iteration.
+- Run `git fetch origin` and create a clean worktree with `git worktree add -b feat/<slug> ~/.cache/worktrees/<slug> origin/main`. If a leftover worktree exists from a previous iteration, enter it and inspect `git status` and `git log --oneline -3`.
 - Discover the validation commands in each affected package.json (test, typecheck, lint). Include them in every subagent prompt, including a possible cleaner correction pass.
-- Define the scope, exclusions, and completion criteria in a few sentences. An open scope makes the PR larger and harder to review.
+- Define the scope, exclusions, and completion criteria in a few sentences.
 - Define the **product behavior to prove** after implementation: UI route/flow, API, CLI scenario, or N/A for docs/chore with no runtime surface. Record how success looks (observable result, not only "tests pass").
+- For visual UI work, capture **before** from the base revision (`origin/main` or the PR base) or reuse an identified earlier capture. Do this before the implementation commit, or from a separate checkout of the base. After implementation, capture **after** on the feature branch. Label each file.
 - Establish the language for each output from the project's instructions and existing files or commit history. Pass that choice to every subagent.
 
 ## Step 1, implementation subagent
 
-The subagent starts without context, so its prompt must be self-contained. Use this structure:
+The subagent starts without context, so the prompt must be self-contained:
 
 ```
 Implement [DEFINED SCOPE] in repository [WORKTREE PATH], branch [BRANCH].
@@ -49,40 +49,30 @@ REQUIREMENTS:
 
 STYLE: follow the repo's conventions; read neighboring files before writing.
 Language for comments, docs, UI strings, and commits: [project conventions].
-Explain the mechanism in comments. Apply [writing skill selected for the
-output language]. Use active voice and concrete mechanisms. Avoid decorative
-dashes, trailing filler clauses, false dichotomies, inflated vocabulary, and
-vague verbs.
+Apply [../unslop-br/SKILL.md for PT-BR | ../humanizer/SKILL.md for English].
 
-REQUIRED CHECKS before committing: [test and typecheck commands].
-Fix failures.
-
-COMMIT: one local commit with the full change; use the repo log's language
-and style. No AI attribution, Co-authored-by, or --author.
-
-FINAL REPORT: changes by file, test counts, commit hash,
-and omitted work with reasons.
+REQUIRED CHECKS before committing: [test and typecheck commands]. Fix failures.
+COMMIT: one local commit; repo log language and style; git config author; never --author.
+FINAL REPORT: changes by file, test counts, commit hash, omitted work with reasons.
 ```
 
 ## Step 2, clean-crap gate (main agent)
 
-After the implementation commit and before any review, run the deterministic complexity-and-coverage gate from the sibling `clean-crap` skill against the worktree. Resolve `<clean-crap>` as the `clean-crap` folder next to this skill (for example `~/.agents/skills/clean-crap`); install its dependency once per checkout with `npm ci --prefix <clean-crap>`. Then:
+Run `../clean-crap/SKILL.md` against the worktree. Resolve `<clean-crap>` as the `clean-crap` folder next to this skill. Gate with `--changed`:
 
 ```
 node <clean-crap>/scripts/clean-crap.mjs --root <WORKTREE> --changed [--threshold N]
 ```
 
-`--changed` limits the gate to files added or modified in this iteration; the default threshold is 30, overridable by the operator per project or slice. Exit codes: 0 gate passed; 1 tool or wiring error; 2 threshold exceeded, with the per-entry failure list on stdout and the report at `<worktree>/.metrics/crap.json`. The snapshot is never committed; ensure `.metrics/` is in the target project's ignore rules and add it in the next correction commit when missing.
-
 - Exit 0: advance to step 2a.
 - Exit 2: run the correction pass below before product verification or review.
 - Exit 1: fix the invocation or environment. A syntax error in changed sources goes back to the implementation scope. Never advance past the cleaner while the gate errors.
 
-Coverage: when stdout notes that no LCOV was found and step 0 discovered a coverage command, run that command once and re-run the gate so CRAP is scored with coverage. Without coverage data the gate measures complexity only and null CRAP never fails; record complexity-only gating in the iteration report when the project has no coverage infrastructure.
+If the gate reports no LCOV and step 0 discovered a coverage command, run that command once and re-run the gate. Record complexity-only gating in the iteration report when the project has no coverage infrastructure. Add `.metrics/` to the target project's ignore rules in the next correction commit when missing.
 
 ### Correction pass after exit 2
 
-Delegate a focused fix subagent (inline when subagents are unavailable), then re-run the project's tests and the gate:
+Delegate a focused fix subagent, then re-run the project's tests and the gate:
 
 ```
 Lower CRAP in worktree [WORKTREE], branch [BRANCH].
@@ -99,7 +89,7 @@ is not enough, add tests that exercise the uncovered branches to raise
 coverage. Run the gate again to confirm.
 
 REQUIRED CHECKS before committing: [commands]. Fix failures.
-COMMIT: one local commit, repo language and style, no AI attribution.
+COMMIT: one local commit, repo language and style, git config author.
 FINAL REPORT: failing entries before and after, test counts, commit hash.
 ```
 
@@ -107,17 +97,17 @@ Allow at most two correction rounds per iteration. On the third gate failure, st
 
 ### Skipping the cleaner
 
-When the operator explicitly asks to skip the cleaner for a slice (for example docs-only or emergency delivery), record the skip in the conversation and the iteration report, then advance to step 2a. A diff with no JS/TS sources yields zero entries and passes on its own; no skip is needed in that case.
+When the operator explicitly asks to skip the cleaner for a slice, record the skip in the conversation and the iteration report, then advance to step 2a.
 
 ## Step 2a, product verification (main agent)
 
 Run the product behavior planned in step 0. This is separate from unit/typecheck commands.
 
-- UI: exercise the changed flow end to end with the available browser/preview tools; capture before/after to a temp path outside the repo when the change is visual.
+- UI: exercise the changed flow end to end with the available browser/preview tools. Capture **after** on the feature branch and pair it with the **before** capture from step 0. If before is missing, check out the base revision in a separate worktree (or stash, capture, restore). A screenshot taken after implementation is not before.
 - API/CLI: run the concrete command or request that proves the behavior; keep exit code and relevant output.
 - N/A: for docs/chore with no runtime surface, record that verification is not applicable and skip capture.
 
-Do not invent a green result. On failure, fix in scope (return to implementation or a focused correction) before drafting the PR body. Keep temp media for the draft/publish path; do not commit it.
+Do not invent a green result. On failure, fix in scope (return to implementation or a focused correction) before drafting the PR body. Do not advance to 2b while the scenario failed. Keep temp media for the draft/publish path; do not commit it.
 
 ## Step 2b, PR description draft (main agent)
 
@@ -125,7 +115,7 @@ Follow `../pr-description/SKILL.md` in **draft** mode. Write `<worktree>/.scratc
 
 ## Step 3, review subagent (read only)
 
-One subagent reviews both code and prose. Request a verdict and findings with severity and exact locations so the correction agent can act on them.
+One subagent reviews both code and prose.
 
 ```
 Perform a READ-ONLY senior review (no edits or commits) of PR [N] /
@@ -139,16 +129,11 @@ PART 1, code: correctness, security (auth, validation, ownership, CSRF,
 secrets in logs), edge cases, regressions, and test coverage. Verify claims
 about branch, main, and CI state in Git before relying on them.
 
-PART 2, prose: apply [writing skill selected for the output language] to the
-PR body, commit messages, changed documentation, code comments, UI strings,
-and test descriptions. For PT-BR, first read ../unslop-br/SKILL.md. For English,
-use an installed English writing skill such as humanizer when available.
-Check the PR body against ../pr-description/SKILL.md Evidence rules (observed
-vs invented, failure taxonomy). Find decorative dashes, mechanical bold-label
-lists, false dichotomies, trailing filler clauses, inflated vocabulary,
-pretentious verbs, metaphors, wordy phrases, emojis, and flattery. Legitimate
-technical terms and normative references (RFCs, protocol names) are acceptable.
-Preexisting formatting outside the changed text is outside this review's scope.
+PART 2, prose: apply ../unslop-br/SKILL.md for PT-BR or ../humanizer/SKILL.md
+for English to the PR body, commit messages, changed documentation, code
+comments, UI strings, and test descriptions. Check the PR body against
+../pr-description/SKILL.md Evidence rules. Preexisting formatting outside
+the changed text is outside this review's scope.
 
 REPORT:
 ## Part 1, code
@@ -156,7 +141,6 @@ REPORT:
 - Numbered findings: severity (blocking/important/minor/nit), file:line, suggestion
 ## Part 2, prose
 - Table: exact text, location, violated rule, rewrite
-- Full inventory of decorative dashes and prohibited vocabulary with locations
 ## Conclusion
 - Ordered changes required before merge (empty if none)
 ```
@@ -172,19 +156,15 @@ Do not push, rebase, or touch other repositories. Create one local commit.
 [NUMBERED LIST: file:line, problem, and exact correction for each item.
 For bugs, include the new test case that demonstrates the correction.]
 
-STYLE: [same language conventions and prose rules as the implementer]
-
+STYLE: [same language conventions and writing skill as the implementer]
 REQUIRED CHECKS before committing: [commands]. Fix failures.
-
-COMMIT: [repo log's language and style, no AI attribution]
-
-FINAL REPORT: changes by file, test counts, commit hash,
-and unapplied items with reasons.
+COMMIT: [repo log's language and style; git config author]
+FINAL REPORT: changes by file, test counts, commit hash, unapplied items with reasons.
 ```
 
 ## Step 4a, re-verify product behavior (main agent)
 
-Re-run the step 0 scenarios affected by the correction commit. Refresh or replace temp captures when UI evidence changed. If nothing user-facing changed, record that re-verify was skipped and why.
+If the correction changed code, re-run the clean-crap gate from step 2 and require exit 0 (or an explicit operator skip) before 4b. Re-run the step 0 scenarios affected by the correction commit. Refresh or replace **after** captures when UI evidence changed; keep the original **before**. If nothing user-facing changed, record that product re-verify was skipped and why. If product verification fails, return to a focused correction. Do not advance to 4b or 5 while the scenario failed or the cleaner is red.
 
 ## Step 4b, refresh PR description draft (main agent)
 
@@ -192,20 +172,19 @@ Follow `../pr-description/SKILL.md` in **draft** mode again so `<worktree>/.scra
 
 ## Step 5, Git publication and merge (main agent)
 
-Follow this order:
-
-1. Inspect the correction commit. Its message must have no AI attribution (`git log -1 --format=%B | grep -ci 'co-authored\|generated with'` must print 0).
+1. Inspect the correction commit (message, author, committer).
 2. Run `../publication-hygiene/SKILL.md` on the commits, diff, and the draft PR body.
 3. Run `git push origin <branch>`.
 4. Follow `../pr-description/SKILL.md` in **publish** mode: create or edit the PR for this head with `--body-file <worktree>/.scratch/pr-description/body.md` and `--attach` for any temp Evidence media. Prefer edit when an open PR for the head already exists.
 5. If main already contains the feature tree from an earlier squash of the same branch, remove the duplicate history with `git rebase --onto origin/main <old-commit> <branch>`. Confirm identical trees with `git rev-parse <new>^{tree} <old>^{tree}`, then run `git push --force-with-lease`. Force push only your own unmerged branch after checking tree equality. Refresh the PR body via `pr-description` publish if the push rewrote history.
-6. With merge authorization, run `gh-axi pr merge <N> --squash --delete-branch --subject "... (#N)" --body "..."`. Set the subject and body explicitly without AI attribution. Run publication-hygiene on that subject/body before merging.
+6. With merge authorization, run `gh-axi pr merge <N> --squash --delete-branch --subject "... (#N)" --body "..."`. Set the subject and body explicitly. Run publication-hygiene on that subject/body before merging.
 7. Clean up with `git pull --ff-only` in the main repo, `git worktree remove --force <worktree>`, and `git branch -D <branch>`. Delete any remaining temp Evidence media that was already confirmed on GitHub.
 8. If main deploys automatically through CI, check the merge run with `gh-axi run list`. Record migrations and secrets not covered by CI as follow-up work.
 
 ## Step 6, next item
 
-- Update the roadmap, open questions, and ADRs affected by the item. Include those changes in the correction commit when appropriate.
+- Write versioned ADRs under `docs/adr/` in the correction commit when the item settled a decision that qualifies.
+- Update local tracker status in `.scratch/<feature>/issues/`. Do not commit `.scratch/` tracker files unless the target repo versions them. Refresh the Project Hub with setup's generator (`node ../setup/scripts/generate-hub.mjs`).
 - Report the iteration briefly: scope, PR/commit, test counts, and recorded follow-ups.
 - Return to step 0 for the next item.
 
@@ -215,10 +194,10 @@ Stop when the list ends, the operator requests a pause, or an item requires an e
 
 - Step 1 → 2: worktree has a local commit, tests pass, and the scope is delivered.
 - Step 2 → 2a: the clean-crap gate exited 0 (after at most two correction rounds), or the operator explicitly skipped the cleaner for this slice.
-- Step 2a → 2b: product verification ran (or N/A was recorded); failures were fixed or escalated.
+- Step 2a → 2b: product verification succeeded (or N/A was recorded); a failed scenario was fixed before drafting.
 - Step 2b → 3: `<worktree>/.scratch/pr-description/body.md` exists and reflects observed checks.
 - Step 3 → 4: review conclusions have become numbered instructions with exact locations, or no changes are needed and you skip to step 4a.
 - Step 4 → 4a: tests pass again and the commit has been checked for attribution.
-- Step 4a → 4b: affected product scenarios were re-run or an explicit skip was recorded.
-- Step 4b → 5: the draft body matches the final diff and latest Evidence.
+- Step 4a → 4b: if code changed, clean-crap exited 0 (or the operator skipped it); product verification succeeded or an explicit N/A/skip was recorded; a failed scenario was not left unfixed.
+- Step 4b → 5: the draft body matches the final diff and latest Evidence; do not publish while verification or the cleaner is failed.
 - Step 5 → 6: PR created or updated via `pr-description` publish, merged with authorization, local main updated, worktree and branch removed, and main CI passing when present.

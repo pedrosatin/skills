@@ -10,7 +10,7 @@ Edite e escreva textos eliminando vícios de redação de modelos de linguagem, 
 ## Processo de auditoria e reescrita
 
 1. **Varredura de padrões.** Identifique no texto palavras infladas, gerundismos de cauda, travessões, estruturas de concessão ("mas"), falsas dicotomias ("não é X, é Y") e conectivos de preenchimento.
-2. **Reescrita com mecanismos concretos.** Substitua adjetivos vagos e impressões subjetivas por dados numéricos, regras de arquitetura, tipos de dados, código ou o mecanismo exato de engenharia.
+2. **Reescrita com mecanismos concretos.** Substitua adjetivos vagos e impressões subjetivas por regras de arquitetura, tipos de dados, código ou o mecanismo exato de engenharia. Inclua um número só quando a medida, a fonte citada ou o operador o tiver fornecido. Inventar métrica é pior do que deixar o valor de fora.
 3. **Ajuste de ritmo e tom.** Varie a extensão dos períodos. Elimine fórmulas de abertura genéricas e encerramentos protocolares. Assuma postura técnica fundamentada em critérios objetivos.
 4. **Auto-auditoria estrita.** Verifique se o texto final contém algum termo da lista de vocabulário proibido, travessões ou o padrão mecânico de tópicos com rótulo em negrito. Se encontrar, corrija antes de finalizar.
 
@@ -18,7 +18,7 @@ Edite e escreva textos eliminando vícios de redação de modelos de linguagem, 
 
 Remover vícios é apenas metade do processo. O texto precisa carregar conteúdo factual e precisão técnica.
 
-- **Diga o que o sistema faz, não a sensação que ele causa.** Substitua expressões como "uma interface intuitiva e fluida" por dados objetivos como "o tempo de renderização é de 16 ms" ou "a rota responde sem recarregar o navegador".
+- **Diga o que o sistema faz, não a sensação que ele causa.** Substitua "uma interface intuitiva e fluida" por um mecanismo observável: "a rota responde sem recarregar o navegador". Um número entra só com origem (medida, citação, operador). Sem origem, descreva o mecanismo e omita o valor.
 - **Assuma critérios objetivos de decisão.** Evite falsa neutralidade com listas genéricas de prós e contras sem conclusão. Apresente os trade-offs arquiteturais e o critério técnico de escolha.
 - **Varie o tamanho das frases.** Alterne frases curtas e diretas com períodos explicativos bem articulados. Evite o padrão monótono de frases com o mesmo tamanho.
 - **Prefira a voz ativa.** Indique claramente o ator ou componente responsável pela ação. Troque "as requisições são validadas" por "o middleware valida o payload da requisição".
@@ -130,6 +130,7 @@ Textos que registram um resultado já decidido não pedem ação ao leitor. Pare
 
 - **Proibição total de travessão.** Proibido o uso de travessão ("—"), meia-risca ("–") e de hífen espaçado (" - ") no meio de frases simulando travessão. Para pausas ou separação de orações, utilize ponto final ou vírgula.
 - **Sem parênteses como muleta.** Não substitua travessões por parênteses no meio de frases explicativas. Divida a frase em dois períodos independentes.
+- Em PT-BR, a proibição de travessão e de parêntese-muleta vale mesmo com a skill humanizer carregada.
 - **Uso restrito de dois-pontos (:)**:
   - Permitido apenas antes de listas diretas, trechos de código ou definições pontuais.
   - Proibido no meio de frases como conector sintático.
@@ -152,6 +153,6 @@ Ao revisar ou gerar qualquer texto técnico em Português Brasileiro, considere 
 2. Nenhum travessão ("—", "–", " - ") ou emoji permanece no documento.
 3. Não há gerúndios de cauda ("garantindo que...", "destacando...") no encerramento de períodos.
 4. Títulos e subtítulos estão em sentence case e sem dois-pontos.
-5. As descrições técnicas apontam mecanismos de engenharia, parâmetros, dados mensuráveis ou código, sem abstrações ou sensações subjetivas.
+5. As descrições técnicas apontam mecanismos de engenharia, parâmetros, código ou dados mensuráveis com origem (medida, citação ou operador), sem abstrações, sensações subjetivas nem números inventados.
 6. Nenhum verbo de atribuição vago ("fixou", "cravou", "mostrou-se") descreve uma decisão sem ator e sem critério.
 7. Em registro de decisão encerrada, os apontamentos estão no passado ou no condicional, sem imperativo, e o texto entregue ao avaliado não cita notas anteriores, outras avaliações nem comparações com trabalhos de terceiros.
