@@ -12,10 +12,13 @@ revision when replacing a package.
 | grilling, teach, to-spec, to-tickets, research | [mattpocock/skills](https://github.com/mattpocock/skills) | `c55ee46073ed` (2026-09-18) | MIT |
 | humanizer | [blader/humanizer](https://skills.sh/blader/humanizer) (see `skills/humanizer/LICENSE`) | installed through skills.sh | MIT © 2025 Siqi Chen |
 | show-me | [humanlayer/skills](https://github.com/humanlayer/skills) | `bba9d13ab34f` (2026-09-12) | MIT © 2026 HumanLayer |
+| pr-description (adapted from `pr`) | [mattpocock/skills](https://github.com/mattpocock/skills) `pr` skill; visual kinds via local `show-me` / HumanLayer | `49dd158d1076` (2026-10-09) | MIT © 2026 Matt Pocock; show-me lineage MIT © 2026 HumanLayer |
 
 ## Local adaptations
 
 `show-me` isolates temporary HTML artifacts under `.scratch/show-me/` to protect repository hygiene, supports platform openers (`open` on macOS, `xdg-open` on Linux, `start` on Windows), and integrates with `archify` for formal architecture diagrams.
+
+`pr-description` adapts Matt Pocock's `pr` body/evidence pattern into draft and publish modes with `gh-axi` create/edit, idempotent head lookup, GitHub-only `--attach` media, and an execution/capture/upload failure taxonomy. It points at the local `show-me` skill for visuals instead of vendoring that menu. See `skills/pr-description/CREDITS.md`. Source notices stay in the skill package and must not appear as PR/commit authorship footers.
 
 `grilling` uses each agent's native question interface instead of waiting for
 prose replies, and adds a repo-only close step that writes settled terms into
@@ -34,7 +37,8 @@ example question are in English. `to-spec` uses the English term "test boundarie
 without a duplicate Portuguese gloss. Preserve these edits when syncing upstream.
 
 Original skills (MIT, this repo): unslop-br, publication-hygiene, babysit-prs,
-pr-loop, validate-agent-config, setup, board.
+pr-loop, validate-agent-config, setup, board, clean-crap. `pr-description` is
+original orchestration with attributed upstream body/evidence lineage (table above).
 
 Known exception: `unslop` (EN) is absent from this repo because the local version
 derives from unlicensed text (pstack/unslop, cursor/plugins).

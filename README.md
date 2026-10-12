@@ -49,8 +49,9 @@ Original skills:
 
 - `unslop-br`: removes AI writing patterns in PT-BR.
 - `publication-hygiene`: checks commits and PRs for agent provenance before publication.
+- `pr-description`: drafts a local PR body from observed validation, or creates/edits the remote PR with evidence attachments (adapted from Matt Pocock's `pr`; see `ATTRIBUTION.md`).
 - `babysit-prs`: reviews and merges open PRs.
-- `pr-loop`: delivers backlog items with implementation, review, and corrections by subagents.
+- `pr-loop`: delivers backlog items with implementation, product verification, review, and corrections by subagents.
 - `clean-crap`: gates delivery on a CRAP threshold (cyclomatic complexity joined with LCOV coverage) via a bundled JS/TS CLI.
 - `validate-agent-config`: validates instruction entry points and skill configuration consistency.
 - `setup`: initializes local specs, tickets, and the HTML Project Hub.
@@ -62,6 +63,7 @@ Vendored skills and tools (see `ATTRIBUTION.md`):
 - `archify`: interactive HTML/SVG architecture diagrams, from tt-a1i.
 - `grilling`, `to-spec`, `to-tickets`, `research`, `teach`: Matt Pocock's planning and learning workflow (local adaptations: harness question UI; grilling close + to-spec catch-up for `GLOSSARY.md` / ADRs; see `ATTRIBUTION.md`).
 - `humanizer`: prose editing, from Siqi Chen.
+- `show-me`: concise visual sketches for conversation and PR summaries, from HumanLayer (local path and opener adaptations; see `ATTRIBUTION.md`).
 
 ## Contributing
 
