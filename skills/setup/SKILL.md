@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Configure the repository for the full local software engineering workflow:
 - **Specs & tickets**: local tracking in `.scratch/` for direct use with `/to-spec` and `/to-tickets`.
-- **Domain docs**: a single-context convention in `docs/agents/` and ADRs in `docs/adr/`.
+- **Domain docs**: a single-context convention in `docs/agents/`, glossary in `GLOSSARY.md`, and ADRs in `docs/adr/`.
 - **Knowledge graph**: integration with `graphify` to map dependencies and central nodes.
 - **Project Hub**: an interactive HTML dashboard in `.scratch/index.html` with a ticket Kanban board, spec reader, rules, and graph links.
 
@@ -51,7 +51,7 @@ Summarize what you found and ask the questions needed before proceeding, one at 
   See `docs/agents/issue-tracker.md`.
 
   ### Domain docs
-  Single-context convention (`docs/adr/`). See `docs/agents/domain.md`.
+  Single-context convention (`GLOSSARY.md`, `docs/adr/`). See `docs/agents/domain.md`.
   ```
 - Wait for the user's confirmation before writing.
 

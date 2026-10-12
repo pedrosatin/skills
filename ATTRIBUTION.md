@@ -18,7 +18,15 @@ revision when replacing a package.
 `show-me` isolates temporary HTML artifacts under `.scratch/show-me/` to protect repository hygiene, supports platform openers (`open` on macOS, `xdg-open` on Linux, `start` on Windows), and integrates with `archify` for formal architecture diagrams.
 
 `grilling` uses each agent's native question interface instead of waiting for
-prose replies. Reapply the "Ask through the harness question UI" section after
+prose replies, and adds a repo-only close step that writes settled terms into
+`GLOSSARY.md` after shared understanding is confirmed, then confirms each
+qualifying ADR through the same question UI (see `docs/agents/domain.md`).
+Reapply the "Ask through the harness question UI" and "Capture domain docs at
+the close" sections after syncing upstream.
+
+`to-spec` runs a domain catch-up before drafting so missing settled terms and
+qualifying ADRs from the conversation are written to disk without a new
+interview, even when the grilling close was skipped. Preserve that step when
 syncing upstream.
 
 `graphify` has a local installation-confirmation comment; its instruction and
