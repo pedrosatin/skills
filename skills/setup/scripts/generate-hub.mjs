@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { assignColumns, parseTicketFile, readScratchTickets } from './scratch-tickets.mjs';
 
@@ -346,11 +346,14 @@ let rulesFile = null;
 let rulesContent = '';
 for (const cand of ['AGENTS.md', 'CLAUDE.md', 'CONTEXT.md']) {
   const candPath = path.join(repoRoot, cand);
-  if (fs.existsSync(candPath)) {
-    rulesFile = cand;
-    rulesContent = fs.readFileSync(candPath, 'utf8');
-    break;
-  }
+  try {
+    const st = fs.lstatSync(candPath);
+    if (st.isFile() && !st.isSymbolicLink()) {
+      rulesFile = cand;
+      rulesContent = fs.readFileSync(candPath, 'utf8');
+      break;
+    }
+  } catch {}
 }
 
 // 3. Discover Graphify
@@ -393,6 +396,11 @@ const docsSpecsDir = path.join(repoRoot, 'docs', 'specs');
 
 function parseSpecFile(filePath, featureName) {
   try {
+    const st = fs.lstatSync(filePath);
+    if (!st.isFile() || st.isSymbolicLink()) return null;
+    const real = fs.realpathSync(filePath);
+    const rootAbs = path.resolve(repoRoot);
+    if (real !== rootAbs && !real.startsWith(rootAbs + path.sep)) return null;
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n');
     let title = featureName;
@@ -1842,6 +1850,6 @@ console.log(`  Specs: ${metrics.totalSpecs} | Tickets: ${metrics.totalTickets} (
 if (shouldOpen) {
   try {
     const cmd = process.platform === 'darwin' ? 'open' : (process.platform === 'win32' ? 'start' : 'xdg-open');
-    execSync(`${cmd} "${outputFile}"`);
+    spawnSync(cmd, [outputFile], { stdio: 'ignore', shell: false });
   } catch {}
 }
