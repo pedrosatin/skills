@@ -28,7 +28,7 @@ gh-axi pr view <number> --full --comments
 gh-axi api /repos/{owner}/{repo}/pulls/<number>
 ```
 
-`--full` keeps the complete diff and body; the default truncates. `pr view` supplies title, body, draft, author, and comments. `pr list` and `pr view` omit mergeability and git refs; the REST pull object supplies `mergeable`, `mergeable_state`, `head.ref`, `head.sha`, and `base.ref`. Record the reviewed head SHA. Treat `mergeable: false` or `mergeable_state: dirty` as conflicting. If `mergeable` is null, GitHub has not computed it yet: retry once, and skip merge while it stays null.
+`--full` keeps the complete diff and body; the default truncates. `pr view` supplies title, body, draft, author, and comments. `pr list` and `pr view` omit mergeability and git refs; the REST pull object supplies `author_association`, `head.repo.full_name`, `base.repo.full_name`, `mergeable`, `mergeable_state`, `head.ref`, `head.sha`, and `base.ref`. Record the reviewed head SHA. Treat `mergeable: false` or `mergeable_state: dirty` as conflicting. If `mergeable` is null, GitHub has not computed it yet: retry once, and skip merge while it stays null.
 
 ### 3. Cross-PR conflict detection
 
@@ -39,6 +39,8 @@ Before reviewing individually, scan all diffs together for:
 
 ### 4. Review criteria: MERGE only if ALL true
 
+- **Authorized author**: PR `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR`. PRs from external contributors (`FIRST_TIME_CONTRIBUTOR`, `CONTRIBUTOR`, `NONE`) require explicit human operator confirmation before merging.
+- **Trusted source**: PR originates from the local repository (`head.repo.full_name == base.repo.full_name`), not an external fork. PRs from external forks require human review.
 - No bugs introduced (logic errors, off-by-one, null dereference, broken control flow)
 - No security regressions (XSS, injection, auth bypass, exposed secrets, weakened sandbox)
 - No breaking API/type changes without migration path
@@ -55,7 +57,7 @@ For every PR you intend to merge, first attempt `gh-axi pr update-branch <number
 
 After any branch update or conflict resolution, fetch the resulting head SHA, inspect the new diff, and run the target project's required checks against that head. Repeat the review criteria for the updated diff; record the verified SHA. If checks fail or cannot be run, leave the PR unmerged with the specific blocker.
 
-If `update-branch` fails with conflicts → **attempt to resolve them yourself** before giving up:
+If `update-branch` fails with conflicts → **attempt to resolve them yourself** before giving up (only for PRs from the same repository, never push to `origin:<head.ref>` for external fork PRs):
 
 ```bash
 git fetch origin
