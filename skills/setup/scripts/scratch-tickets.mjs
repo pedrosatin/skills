@@ -47,9 +47,16 @@ export function columnFor(rawStatus, hasUnresolvedBlocker = false) {
  * Parse one ticket Markdown file. Returns null if it cannot be read.
  * `relativeTo` sets the base for `relPath` (defaults to the file's directory).
  */
-export function parseTicketFile(filePath, featureName, relativeTo = path.dirname(filePath)) {
+export function parseTicketFile(filePath, featureName, relativeTo = path.dirname(filePath), repoRoot = null) {
   let content;
   try {
+    const st = fs.lstatSync(filePath);
+    if (!st.isFile() || st.isSymbolicLink()) return null;
+    if (repoRoot) {
+      const real = fs.realpathSync(filePath);
+      const rootAbs = path.resolve(repoRoot);
+      if (real !== rootAbs && !real.startsWith(rootAbs + path.sep)) return null;
+    }
     content = fs.readFileSync(filePath, 'utf8');
   } catch {
     return null;
@@ -111,7 +118,7 @@ export function readScratchTickets(scratchDir, relativeTo = scratchDir) {
       if (!fs.existsSync(issuesDir)) continue;
       for (const f of fs.readdirSync(issuesDir)) {
         if (!f.endsWith('.md')) continue;
-        const t = parseTicketFile(path.join(issuesDir, f), e.name, relativeTo);
+        const t = parseTicketFile(path.join(issuesDir, f), e.name, relativeTo, scratchDir);
         if (t) tickets.push(t);
       }
     }
