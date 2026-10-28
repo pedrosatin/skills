@@ -24,7 +24,7 @@ Infer from the operator's wording. Bare `/pr-description` with no publish verb a
 
 1. Read the repo PR template (for example `.github/PULL_REQUEST_TEMPLATE.md`) and language conventions. Map onto the template when present.
 2. Collect the diff (`git diff <base>...<head>`), commits, and **observed** checks from the caller (commands, exits, notes, temp media paths). Do not invent results.
-3. Write the body to `<repo>/.scratch/pr-description/body.md` (create the directory). Do not commit this file.
+3. Write the body to `<repo>/.scratch/pr-description/body.md` on the checkout that owns the branch diff (often a feature worktree). This path is ephemeral draft material, not the issue tracker — specs and tickets stay on the primary worktree per `docs/agents/issue-tracker.md`. Do not commit this file.
 4. Apply `../unslop-br/SKILL.md` for PT-BR prose, or `../humanizer/SKILL.md` for English. Keep code identifiers and quoted material intact. Follow `../publication-hygiene/SKILL.md` for provenance in the body.
 5. Report the body path and which Evidence claims are observed vs planned vs N/A.
 

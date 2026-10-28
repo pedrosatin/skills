@@ -7,7 +7,7 @@ Write skill instructions, descriptions, internal prompts, supporting documentati
 Use the user's language for conversation and follow each target project's language conventions for generated prose. English instructions do not require English output. Keep interface localization separate from instruction translation.
 
 ### Issue tracker
-Track issues locally in Markdown files under `.scratch/<feature>/`.
+Track issues locally in Markdown files under `.scratch/<feature>/` on the primary worktree.
 The interactive dashboard is at `.scratch/index.html`.
 See `docs/agents/issue-tracker.md`.
 
