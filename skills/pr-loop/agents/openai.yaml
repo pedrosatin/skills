@@ -1,0 +1,5 @@
+interface:
+  display_name: "PR Loop"
+  short_description: "Implement, review, and ship one backlog item"
+policy:
+  allow_implicit_invocation: true
