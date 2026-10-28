@@ -9,6 +9,6 @@ Its job:
 
 1. Investigate the question against **primary sources** (official docs, source code, specs, first-party APIs), not a secondary write-up of them.
 2. Write the findings to a **single Markdown file**. Every claim cites the source that owns it.
-3. Save the file where the repo already keeps research notes. If there is no convention, write `.scratch/research/<slug>.md`. Tell the operator the path.
+3. Save the file where the repo already keeps research notes. If there is no convention, resolve the **primary worktree** and write `<primary>/.scratch/research/<slug>.md` (not only inside a disposable agent worktree). Tell the operator the path.
 
 Done when every claim has a primary source, the file is written, and the path is reported.

@@ -22,7 +22,7 @@ const USAGE = `Usage: node scripts/board.mjs [options]
 Check whether .scratch/index.html exists and open the board in the default browser.
 
 Options:
-  --root <dir>   project root (default: walk up from cwd to .scratch/ or the Git root)
+  --root <dir>   project root (default: primary worktree .scratch/, else walk up from cwd)
   --print, -p    resolve and print the path/URL without opening the browser
   --json         print the result as JSON ({found, root, scratch, path, url, opened|guidance|openError})
   --help, -h     show this help`;
@@ -74,10 +74,33 @@ function isFile(target) {
   }
 }
 
-// Walk up from `start` looking for a .scratch/ directory. Stop at the first
-// match or the Git root to avoid crossing into a parent repository.
+// First worktree path from `git worktree list --porcelain` (the primary checkout).
+function primaryWorktreeRoot(start) {
+  const result = spawnSync('git', ['-C', start, 'worktree', 'list', '--porcelain'], {
+    encoding: 'utf8',
+    timeout: 5000,
+  });
+  if (result.status !== 0 || !result.stdout) return null;
+  for (const line of result.stdout.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      const root = line.slice('worktree '.length).trim();
+      return root || null;
+    }
+  }
+  return null;
+}
+
+// Prefer the primary worktree's `.scratch/` (durable tracker/hub). Fall back to
+// walking up from `start` when git is unavailable or the primary has no scratch.
 function locate(start) {
   const initial = path.resolve(start);
+  const primary = primaryWorktreeRoot(initial);
+  if (primary) {
+    const scratch = path.join(primary, '.scratch');
+    if (isDirectory(scratch)) {
+      return { root: primary, scratch, found: true };
+    }
+  }
   let dir = initial;
   while (true) {
     const scratch = path.join(dir, '.scratch');
@@ -85,7 +108,8 @@ function locate(start) {
       return { root: dir, scratch, found: true };
     }
     if (fs.existsSync(path.join(dir, '.git'))) {
-      return { root: dir, scratch: path.join(dir, '.scratch'), found: false };
+      const root = primary && isDirectory(primary) ? primary : dir;
+      return { root, scratch: path.join(root, '.scratch'), found: false };
     }
     const parent = path.dirname(dir);
     if (parent === dir) {

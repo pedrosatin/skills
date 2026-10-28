@@ -7,7 +7,7 @@ disable-model-invocation: true
 # /setup (and /init)
 
 Configure the repository for the full local software engineering workflow:
-- **Specs & tickets**: local tracking in `.scratch/` for direct use with `/to-spec` and `/to-tickets`.
+- **Specs & tickets**: local tracking in `.scratch/` on the primary worktree for `/to-spec` and `/to-tickets`.
 - **Domain docs**: a single-context convention in `docs/agents/`, glossary in `GLOSSARY.md`, and ADRs in `docs/adr/`.
 - **Knowledge graph**: integration with `graphify` to map dependencies and central nodes.
 - **Project Hub**: an interactive HTML dashboard in `.scratch/index.html` with a ticket Kanban board, spec reader, rules, and graph links.
@@ -46,7 +46,7 @@ Summarize what you found and ask the questions needed before proceeding, one at 
   ## Agent skills
 
   ### Issue tracker
-  Local tracking in Markdown files under `.scratch/<feature>/`.
+  Local tracking in Markdown files under `.scratch/<feature>/` on the primary worktree.
   Interactive dashboard at `.scratch/index.html`.
   See `docs/agents/issue-tracker.md`.
 
@@ -58,21 +58,22 @@ Summarize what you found and ask the questions needed before proceeding, one at 
 ### 3. Write configuration files
 
 After confirmation:
-1. Copy this skill's templates into the project:
+1. Resolve the repository's **primary worktree** (`git worktree list --porcelain | awk '/^worktree / { print $2; exit }'`). Scaffold and hub generation use that path, even when the session cwd is a linked agent worktree. See `templates/issue-tracker.md` (Scratch root).
+2. Copy this skill's templates into the project (on the primary):
    - `templates/issue-tracker.md` → `docs/agents/issue-tracker.md`
    - `templates/domain.md` → `docs/agents/domain.md`
-2. Ensure the `.scratch/` directory exists at the project root.
-3. Add or update the `## Agent skills` block in the chosen rules file (`AGENTS.md` or `CLAUDE.md`). Do not duplicate the section if it already exists.
+3. Ensure the `.scratch/` directory exists at the **primary** project root.
+4. Add or update the `## Agent skills` block in the chosen rules file (`AGENTS.md` or `CLAUDE.md`). Do not duplicate the section if it already exists.
 
 ### 4. Generate the Project Hub dashboard
 
 This skill owns hub regeneration. Resolve `<setup>` as this skill's directory (the folder that contains this SKILL.md). Always pass the target repository:
 
 ```bash
-node <setup>/scripts/generate-hub.mjs <project-root>
+node <setup>/scripts/generate-hub.mjs <primary-worktree-root>
 ```
 
-Sibling skills resolve `<setup>` as the `setup` folder next to themselves. A cwd-relative `../setup/scripts/generate-hub.mjs` follows the terminal, not the skill, and fails from the project root.
+Sibling skills resolve `<setup>` as the `setup` folder next to themselves. A cwd-relative `../setup/scripts/generate-hub.mjs` follows the terminal, not the skill, and fails from the project root. Pass the primary worktree root, not a disposable agent checkout.
 
 If the user supplied `--docs`, pass `--docs`. Fixes and visual changes belong in this generator; regenerate `.scratch/index.html` instead of patching it.
 

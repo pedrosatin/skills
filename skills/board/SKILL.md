@@ -12,7 +12,7 @@ Open the project's Project Hub: the `index.html` generated inside `.scratch/`.
 
 ### 1. Run the script
 
-Resolve `<board>` as the folder containing this skill and `<project-root>` as the repository the user requested. Run `node <board>/scripts/board.mjs --root <project-root>` from any directory. Other flags live in `--help`.
+Resolve `<board>` as the folder containing this skill and `<project-root>` as the repository's **primary worktree** (`git worktree list --porcelain | awk '/^worktree / { print $2; exit }'`), even when the session sits on a linked agent checkout. Durable hub files live there — see `docs/agents/issue-tracker.md` (Scratch root). Run `node <board>/scripts/board.mjs --root <project-root>` from any directory. Other flags live in `--help`.
 
 ### 2. Interpret the result
 
