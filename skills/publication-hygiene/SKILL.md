@@ -13,7 +13,7 @@ Run this mandatory gate immediately before creating or amending a commit, pushin
 
 - Inspect the exact commit or PR title, body, trailers, branch name, staged diff, and newly added files.
 - Confirm author and committer come from the operator's current `git config user.name` and `user.email`.
-- Remove provenance of assistance: model, provider, agent, tool or skill names; session/task/log URLs and IDs; prompts; automatic footers; co-author trailers; checkpoint/WIP labels; and generated progress-report framing such as `What/Why/Result`.
+- Remove provenance of assistance that is still present after the always-loaded Git commits rule: session/task/log URLs and IDs; prompts; automatic footers; checkpoint/WIP labels; and generated progress-report framing such as `What/Why/Result`. If a harness injected `Co-authored-by` / "Made with Cursor" after `git commit`, strip it here too — the ban itself lives in `~/.agents/CONTEXT.md`, not as a second policy.
 - Keep product documentation that genuinely describes an AI feature, but rewrite it so it does not disclose the authoring workflow.
 - Treat local agent configuration, session/log output, generated graphs, reports, plans, spike notes, coverage, and worktree files as unpublishable unless the operator explicitly designates them as public product material. Remove accidental additions and add a targeted `.gitignore` entry.
 

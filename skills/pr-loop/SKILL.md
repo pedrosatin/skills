@@ -1,7 +1,6 @@
 ---
 name: pr-loop
-description: "Deliver one backlog item through /pr-loop: implement, clean, verify, review, correct, then publish and merge with authorization."
-disable-model-invocation: true
+description: "Deliver one backlog item through /pr-loop: implement, clean, verify, review, correct, then publish and merge with authorization. Use when the user asks to run the delivery loop, ship a backlog item end to end, or process the next ready ticket through implement→review→PR→merge."
 ---
 
 # /pr-loop
