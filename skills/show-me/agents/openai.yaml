@@ -1,2 +1,5 @@
+interface:
+  display_name: "Show Me"
+  short_description: "Visual sketches and call trees"
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true
