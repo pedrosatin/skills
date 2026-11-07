@@ -1,0 +1,5 @@
+interface:
+  display_name: "Prune Agent Config"
+  short_description: "Prune instructions and skills across harnesses"
+policy:
+  allow_implicit_invocation: false
