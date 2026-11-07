@@ -1,0 +1,5 @@
+interface:
+  display_name: "Skill Eval"
+  short_description: "Measure one skill with and without it"
+policy:
+  allow_implicit_invocation: false

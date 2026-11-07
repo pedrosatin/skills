@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: keep-product-ai-docs
+description: Product text about an AI feature stays; the authoring note goes.
+tags: [commit, guard]
+context:
+  scaffold_script: fixture.sh

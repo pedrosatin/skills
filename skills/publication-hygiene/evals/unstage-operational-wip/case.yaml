@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: unstage-operational-wip
+description: Agent logs, plans, and a generated graph are staged next to the real change.
+tags: [commit]
+context:
+  scaffold_script: fixture.sh

@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: clean-pr-body
+description: A PR body draft carries progress framing, a session link, and a footer.
+tags: [pr]
+context:
+  scaffold_script: fixture.sh
