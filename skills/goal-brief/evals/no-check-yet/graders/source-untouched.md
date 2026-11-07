@@ -1,8 +1,6 @@
 ---
-type: tool_used
-tool: Edit
-input_match: '"file_path"\s*:\s*"[^"]*/slug\.py"'
-max: 0
-min: 0
+type: regex
+target: { source: file, path: slug.py }
+pattern: '^def slugify\(title\):\n    return title\.lower\(\)\.replace\(" ", "-"\)\n$'
 arm: both
 ---
