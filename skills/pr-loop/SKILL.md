@@ -125,9 +125,15 @@ Commits: git -C [WORKTREE] log main..[BRANCH].
 
 CONTEXT: [same 2-4 lines as the implementer]
 
+If [WORKTREE]/REVIEW.md exists, read it first: what it scopes in or out wins
+over the defaults below.
+
 PART 1, code: correctness, security (auth, validation, ownership, CSRF,
 secrets in logs), edge cases, regressions, and test coverage. Verify claims
-about branch, main, and CI state in Git before relying on them.
+about branch, main, and CI state in Git before relying on them. Report
+failure modes: each finding names file:line, the input or state that
+triggers it, and the wrong result. Style belongs to the linter. "No issues"
+is a complete Part 1.
 
 PART 2, prose: apply ../unslop-br/SKILL.md for PT-BR or ../humanizer/SKILL.md
 for English to the PR body, commit messages, changed documentation, code
@@ -138,7 +144,7 @@ the changed text is outside this review's scope.
 REPORT:
 ## Part 1, code
 - Verdict: approved / approve with changes / rejected
-- Numbered findings: severity (blocking/important/minor/nit), file:line, suggestion
+- Numbered findings: severity (blocking/important/minor), file:line, failure mode, suggestion
 ## Part 2, prose
 - Table: exact text, location, violated rule, rewrite
 ## Conclusion
@@ -147,7 +153,7 @@ REPORT:
 
 ## Step 4, correction subagent
 
-Turn the reviewer's ordered findings into numbered instructions with file:line and the intended correction. Skip this step if the reviewer requires no changes.
+Turn the reviewer's ordered findings into numbered instructions with file:line and the intended correction. Skip this step if the reviewer requires no changes. A finding that proves false, or a bug that passed review and surfaced later, is a lesson: record it in the iteration report and point the operator to `/review-lesson` (`../review-lesson/SKILL.md`).
 
 ```
 Apply review corrections in worktree [WORKTREE], branch [BRANCH].

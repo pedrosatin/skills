@@ -1,0 +1,5 @@
+interface:
+  display_name: "Review Lesson"
+  short_description: "Turn one review miss into a durable guard"
+policy:
+  allow_implicit_invocation: false
