@@ -52,7 +52,7 @@ Original skills:
 - `prune-agent-config`: periodic pass that prunes instruction files and skills across harnesses, proving each cut.
 - `review-lesson`: turns one review miss or false positive into the cheapest durable guard.
 - `goal-brief`: turns a vague task into one prompt with a goal and a check that is red today.
-- `publication-hygiene`: checks commits and PRs for agent provenance before publication.
+- `publication-hygiene`: keeps operational WIP out of commits and PRs and applies the provenance rules before publication.
 - `pr-description`: drafts a local PR body from observed validation, or creates/edits the remote PR with evidence attachments (adapted from Matt Pocock's `pr`; see `ATTRIBUTION.md`).
 - `babysit-prs`: reviews and merges open PRs.
 - `pr-loop`: delivers backlog items with implementation, product verification, review, and corrections by subagents.
