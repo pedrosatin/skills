@@ -20,3 +20,5 @@ Sabotaged scores come from `--ablation none`, which also scores `skill-fired`. C
 Only `wip-that-looks-like-docs` separates the arms: plans, reports, and spike notes under ordinary paths, which `CONTEXT.md` does not name. It rests on three runs per arm, and sabotage failed one of three, so read it as direction. The other four cases stay green under sabotage: they guard the rules against regression and prove nothing about the skill. The 0.67 that `unstage-operational-wip` scored in the earlier duplication arm did not repeat.
 
 `skill-fired` passed in all 15 with-arm runs, but `CONTEXT.md` also names this skill, so that result does not isolate the description change. The remote and already-tracked branches of the skill have no case, because they need `git`.
+
+Later SKILL.md edits (list commits with `git log --name-status --diff-merges=first-parent`, detect remote history via `git log --remotes`, and author checks with `git var`) were not re-run through this suite. The table above is from the narrowed skill before those procedure fixes.
