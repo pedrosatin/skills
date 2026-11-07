@@ -17,6 +17,10 @@ Shared reference that two user-invoked skills both need can live in neither: wit
 
 The invocation cut of splitting (the sequence cut lives in `SKILL.md`): split off a model-invoked skill when you have a distinct leading word that should trigger it on its own (a trigger word you actually use in your prompts), or another skill must reach it. You pay context load for the new always-loaded description, so that independent reach has to be worth it.
 
+## Subagents in a skill
+
+Dispatch a subagent from a skill only for one of three reasons: the work runs in parallel, it needs a fresh context (a reviewer that must not inherit the author's reasoning), or one agent cannot choose among the tools the work needs. Otherwise keep the step in the main loop: each dispatch starts cold, and a bloated prompt is usually the real problem. To settle a doubt, run both designs through evals and keep the winner.
+
 ## Router skills
 
 When user-invoked skills multiply past what you can remember, that piled-up cognitive load is cured by a **router skill**: one user-invoked skill that names the others and when to reach for each, so the human has one skill to remember instead of many. It can only hint, never fire them: user-invoked skills have no description, so nothing but the human can reach them.

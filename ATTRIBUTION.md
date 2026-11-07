@@ -45,6 +45,12 @@ not run `uv tool run --from graphifyy`. English question: "Graphify is not
 installed in this environment. Install it with 'uv tool install graphifyy'
 or 'pip install graphifyy'?" Keep the rest of the pipeline in SKILL.md. Semantic dispatch uses a unique chunk directory and an explicit current-run path manifest; collection validates each chunk, skips failures, and aborts when more than half fail. Preserve that collector overlay.
 
+`to-spec` adds a Verification section to the template and a closing step that suggests implementing in a new session. Reapply both after syncing upstream.
+
+`writing-for-agents` adds "Subagents in a skill" to `SKILL-MECHANICS.md`. Reapply it after syncing upstream.
+
+`skill-eval`, `prune-agent-config`, `review-lesson`, and `goal-brief` are original skills in this repo.
+
 `research` stays short and model-invoked. Overlay: primary sources; one
 Markdown file; each claim cites the owning source; save path follows the
 repo's notes convention, else `.scratch/research/<slug>.md`, and tell the

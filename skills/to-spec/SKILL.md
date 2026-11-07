@@ -24,6 +24,8 @@ Check with the user that these test boundaries match their expectations.
 
 5. Refresh the Project Hub with setup's generator: resolve `<setup>` as the `setup` folder next to this skill, then `node <setup>/scripts/generate-hub.mjs <primary>` (owned by `/setup`). Provide the user with the clickable dashboard link (`file://<primary>/.scratch/index.html`).
 
+6. Suggest implementing in a new session that starts from the spec, so the build starts clean of this conversation's dead ends.
+
 <spec-template>
 
 ## Problem Statement
@@ -70,6 +72,10 @@ A list of testing decisions that were made. Include:
 - A description of what makes a good test (only test external behavior, not implementation details)
 - Which modules will be tested through those boundaries
 - Prior art for the tests (i.e. similar types of tests in the codebase)
+
+## Verification
+
+The runnable check that decides this work is done: the command, test, metric, or scripted drive, what it shows today, and what it shows when the work is finished. An agent should be able to run it unattended and read pass or fail. If no such check exists yet, name what must be built so one does.
 
 ## Out of Scope
 
