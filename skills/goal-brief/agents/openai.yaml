@@ -1,0 +1,5 @@
+interface:
+  display_name: "Goal Brief"
+  short_description: "One prompt with a goal and a red check"
+policy:
+  allow_implicit_invocation: false
