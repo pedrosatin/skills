@@ -17,7 +17,7 @@ The lesson concerns a change as a whole, or a step people skip.
 
 ## `REVIEW.md`
 
-The lesson needs judgment, so no check can decide it, but it matters only during review. `REVIEW.md` sits at the repo root and says what deserves a comment there: failure modes, each with file and line. "No issues" is a valid outcome. Keep it to what the code cannot show.
+The lesson needs judgment, so no check can decide it, but it matters only during review. `REVIEW.md` sits at the repo root and says what deserves a comment there: failure modes, each with file and line. "No issues" is a valid outcome. Keep it to what the code cannot show. `/pr-loop` reads this file from the base commit and always keeps its security review, so a new line applies from the next branch after merge, and it can tune the rest of the review only.
 
 - False positive: the reviewer keeps flagging `any` in generated clients. Add: "`src/generated/` is generated; skip it."
 - Escaped bug: a retry was added to a non-idempotent call. Add: "Retries on `POST /payments` need an idempotency key."
