@@ -8,12 +8,13 @@ revision when replacing a package.
 | Skill | Source | Vendored revision | License |
 |---|---|---|---|
 | archify | [tt-a1i/archify](https://github.com/tt-a1i/archify) | `0e4949f910a8` (2026-09-28) | MIT |
-| graphify | [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify) | v0.9.71 | Apache-2.0 |
-| grilling, teach, to-spec, to-tickets, research | [mattpocock/skills](https://github.com/mattpocock/skills) | `c55ee46073ed` (2026-09-18) | MIT |
+| graphify | [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify) | v0.9.104 | Apache-2.0 |
+| grilling, teach, to-spec, to-tickets, research | [mattpocock/skills](https://github.com/mattpocock/skills) | `4ae2317ddb22` (2026-10-31) | MIT |
 | writing-for-agents | [mattpocock/skills](https://github.com/mattpocock/skills) `skills/productivity/writing-for-agents` | `321658273cb1` (2026-08-19) | MIT © 2026 Matt Pocock |
-| humanizer | [blader/humanizer](https://skills.sh/blader/humanizer) (see `skills/humanizer/LICENSE`) | installed through skills.sh | MIT © 2025 Siqi Chen |
+| humanizer | [blader/humanizer](https://github.com/blader/humanizer) (see `skills/humanizer/LICENSE`) | v3.1.0 | MIT © 2025 Siqi Chen |
 | show-me | [humanlayer/skills](https://github.com/humanlayer/skills) | `bba9d13ab34f` (2026-09-12) | MIT © 2026 HumanLayer |
 | pr-description (adapted from `pr`) | [mattpocock/skills](https://github.com/mattpocock/skills) `pr` skill; visual kinds via local `show-me` / HumanLayer | `49dd158d1076` (2026-10-09) | MIT © 2026 Matt Pocock; show-me lineage MIT © 2026 HumanLayer |
+| setup, templates only (`templates/issue-tracker.md` adapted from `setup-matt-pocock-skills/issue-tracker-local.md`, `templates/domain.md` from `domain-modeling`) | [mattpocock/skills](https://github.com/mattpocock/skills) `skills/engineering` | `321658273cb1` (2026-08-19) | MIT © 2026 Matt Pocock |
 
 ## Local adaptations
 
@@ -28,7 +29,9 @@ prose replies, and adds a repo-only close step that writes settled terms into
 `GLOSSARY.md` after shared understanding is confirmed, then confirms each
 qualifying ADR through the same question UI (see `docs/agents/domain.md`).
 Reapply the "Ask through the harness question UI" and "Capture domain docs at
-the close" sections after syncing upstream. Point the close at
+the close" sections after syncing upstream. Upstream's rule that "yes" accepts
+the recommended answer lives in the prose fallback, since option pickers take
+no yes reply. Point the close at
 `docs/agents/domain.md` for glossary layout, vocabulary-only entries, and the
 three ADR conditions; do not recopy those rules into the skill.
 
@@ -45,9 +48,13 @@ fails, ask the operator and wait before `uv tool install graphifyy` /
 the package: inspect `uv tool dir` for an already-installed interpreter; do
 not run `uv tool run --from graphifyy`. English question: "Graphify is not
 installed in this environment. Install it with 'uv tool install graphifyy'
-or 'pip install graphifyy'?" Keep the rest of the pipeline in SKILL.md. Semantic dispatch uses a unique chunk directory and an explicit current-run path manifest; collection validates each chunk, skips failures, and aborts when more than half fail. Preserve that collector overlay.
+or 'pip install graphifyy'?" Keep the rest of the pipeline in SKILL.md. Step B2 records the dispatched count in `.graphify_expected_chunks`, which Step B0 clears. Step B3's merge validates each chunk, counts missing chunks against that total, skips failures, and aborts when more than half fail or are missing; Step B3.5 skips chunks it cannot parse and leaves the report to the merge. Chunks stay at upstream's `graphify-out/.graphify_chunk_NN.json`, where B3.5 and the pre-dispatch cleanup look for them. Preserve that collector overlay. The description opens with "Use when exploring or asking questions".
 
-`to-spec` adds a Verification section to the template and a closing step that suggests implementing in a new session. Reapply both after syncing upstream.
+`to-spec` adds a Verification section to the template and a closing step that suggests implementing in a new session. It also writes the spec to the primary worktree and refreshes the Project Hub. Reapply these after syncing upstream.
+
+`to-tickets` writes tickets to the primary worktree and adds the "Refresh the project dashboard" and "Ticket execution guidance" steps. Reapply them after syncing upstream.
+
+`to-spec` and `to-tickets` point at `/setup` instead of `/setup-matt-pocock-skills` and allow contextual activation: their descriptions say when to use them, `disable-model-invocation` is gone, and `agents/openai.yaml` sets `allow_implicit_invocation: true`.
 
 `writing-for-agents` adds "Subagents in a skill" to `SKILL-MECHANICS.md`. Reapply it after syncing upstream.
 
@@ -69,6 +76,7 @@ Original skills (MIT, this repo): unslop-br, publication-hygiene, babysit-prs,
 pr-loop, validate-agent-config, setup, board, clean-crap, skill-eval,
 prune-agent-config, review-lesson, goal-brief. `pr-description` is original
 orchestration with attributed upstream body/evidence lineage (table above).
+`setup` is original except for its tracker and domain templates (table above).
 
 An English `unslop` is not published here: its source text (pstack/unslop,
 cursor/plugins) carries no license. English prose uses `humanizer`.
