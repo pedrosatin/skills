@@ -49,8 +49,6 @@ or 'pip install graphifyy'?" Keep the rest of the pipeline in SKILL.md. Semantic
 
 `writing-for-agents` adds "Subagents in a skill" to `SKILL-MECHANICS.md`. Reapply it after syncing upstream.
 
-`skill-eval`, `prune-agent-config`, `review-lesson`, and `goal-brief` are original skills in this repo.
-
 `research` stays short and model-invoked. Overlay: primary sources; one
 Markdown file; each claim cites the owning source; save path follows the
 repo's notes convention, else `.scratch/research/<slug>.md`, and tell the
@@ -66,16 +64,23 @@ holds even when humanizer is loaded (humanizer §8 otherwise allows parentheses
 as a dash replacement).
 
 Original skills (MIT, this repo): unslop-br, publication-hygiene, babysit-prs,
-pr-loop, validate-agent-config, setup, board, clean-crap. `pr-description` is
-original orchestration with attributed upstream body/evidence lineage (table above).
+pr-loop, validate-agent-config, setup, board, clean-crap, skill-eval,
+prune-agent-config, review-lesson, goal-brief. `pr-description` is original
+orchestration with attributed upstream body/evidence lineage (table above).
 
 Known exception: `unslop` (EN) is absent from this repo because the local version
 derives from unlicensed text (pstack/unslop, cursor/plugins).
 
+`archify` does not vendor rendered example HTML under `examples/*.html`; regenerate with `node bin/archify.mjs examples` (gitignored). The built-in update check still points at upstream; refresh this vendor copy through the sync process rather than installing upstream over local overlays.
+
+`humanizer` keeps `SKILL.md`, `LICENSE`, and `agents/openai.yaml` only; upstream packaging (nested `.github/`, `.claude-plugin/`, README, AGENTS.md, validate script) is not vendored.
+
 ## Follow-ups (upstream / next sync)
 
 P2 structural splits. Do not apply them locally; they stay with upstream or
-the next vendor sync. ADR 0001: vendored SKILL.md structure stays.
+the next vendor sync. Overlay policy: keep each vendored skill's SKILL.md
+structure; prefer description-only or side-file overlays, and reapply them
+after sync.
 
 - graphify: move the pipeline body from SKILL.md into `references/pipeline.md`
 - humanizer: move Before/After examples into `references/patterns.md`
