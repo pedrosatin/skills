@@ -1,42 +1,27 @@
 // Repository identity and forge links are independent of local Git object checks.
 // This module never contacts a remote server or reads the user's SSH config.
+// Public forge hosts select their provider automatically. GitLab is also
+// self-hosted, so an explicit `provider: "gitlab"` hint selects it on any host.
+const PROVIDER_HOSTS = { 'github.com': 'github', 'gitee.com': 'gitee', 'gitlab.com': 'gitlab' };
 
-const FORBIDDEN_REMOTE_CHARS = /[\s\\\u0000-\u001f\u007f?#]/;
-const FORBIDDEN_SEGMENT_CHARS = /[/\\\s\u0000-\u001f\u007f?#]/;
-
-function normalizeRemoteInput(value, authored) {
+export function parseRepositoryRemote(value, { authored = false, provider: providerHint } = {}) {
   if (typeof value !== 'string') return null;
   const raw = authored ? value : value.trim();
-  if (!raw || FORBIDDEN_REMOTE_CHARS.test(raw)) return null;
-  return raw;
-}
-
-function expandScpRemote(raw) {
+  if (!raw || /[\s\\\u0000-\u001f\u007f?#]/.test(raw)) return null;
   const scp = raw.match(/^git@([^/:]+):(.+)$/);
-  if (!scp) return { scp: null, scpAbsolute: false, expanded: raw };
-  return {
-    scp,
-    scpAbsolute: scp[2].startsWith('/'),
-    expanded: `ssh://git@${scp[1]}/${scp[2].replace(/^\//, '')}`,
-  };
-}
-
-function pathSegmentsFromRemote(pathPart, decodePercent) {
+  const scpAbsolute = Boolean(scp && scp[2].startsWith('/'));
+  const expanded = scp ? `ssh://git@${scp[1]}/${scp[2].replace(/^\//, '')}` : raw;
+  const match = expanded.match(/^(https?|ssh):\/\/([^/]+)\/(.+)$/i);
+  if (!match) return null;
+  // Validate the original path before URL parsing can collapse dot segments.
+  let segments;
   try {
-    let segments = pathPart.replace(/\/$/, '').split('/');
+    segments = match[3].replace(/\/$/, '').split('/');
     // Git passes SCP paths literally; percent escapes are decoded only in URIs.
-    if (decodePercent) segments = segments.map(decodeURIComponent);
-    if (segments.some((part) => !part || part === '.' || part === '..' || FORBIDDEN_SEGMENT_CHARS.test(part))) {
-      return null;
-    }
-    return segments;
+    if (!scp) segments = segments.map(decodeURIComponent);
   }
-  catch {
-    return null;
-  }
-}
-
-function parseExpandedRemoteUrl(expanded, authored) {
+  catch { return null; }
+  if (segments.some((part) => !part || part === '.' || part === '..' || /[/\\\s\u0000-\u001f\u007f?#]/.test(part))) return null;
   let url;
   try { url = new URL(expanded); } catch { return null; }
   const protocol = url.protocol;
@@ -44,81 +29,23 @@ function parseExpandedRemoteUrl(expanded, authored) {
   if (authored && protocol !== 'ssh:' && (url.username || url.password)) return null;
   const hostname = url.hostname.toLowerCase();
   if (!hostname) return null;
-  return { url, protocol, hostname };
-}
-
-function forgeProviderForHostname(hostname) {
-  if (hostname === 'github.com') return 'github';
-  if (hostname === 'gitee.com') return 'gitee';
-  return null;
-}
-
-function normalizeRepositorySegments(segments, provider) {
-  const next = segments.slice();
-  const last = next.length - 1;
-  if (provider) next[last] = next[last].replace(provider === 'github' ? /\.git$/i : /\.git$/, '');
-  if (!next[last] || next[last] === '.' || next[last] === '..') return null;
-  return next;
-}
-
-function remoteEndpoint(protocol, port, provider) {
-  const resolvedPort = port || (protocol === 'ssh:' ? '22' : protocol === 'https:' ? '443' : '80');
+  const provider = Object.hasOwn(PROVIDER_HOSTS, hostname) ? PROVIDER_HOSTS[hostname] : providerHint === 'gitlab' ? 'gitlab' : null;
+  const last = segments.length - 1;
+  if (provider) segments[last] = segments[last].replace(provider === 'github' ? /\.git$/i : /\.git$/, '');
+  if (!segments[last] || segments[last] === '.' || segments[last] === '..') return null;
+  const repositoryPath = segments.join('/');
   // Only known forges map HTTPS and SSH to one repository namespace. Other
   // hosts retain transport, port and remote-relative/absolute path semantics.
-  if (provider && ((protocol === 'https:' && resolvedPort === '443') || (protocol === 'ssh:' && resolvedPort === '22'))) {
-    return 'standard';
-  }
-  return `${protocol}${resolvedPort}`;
-}
-
-function remotePathKind(provider, scp, scpAbsolute) {
-  if (provider) return 'repository';
-  return scp && !scpAbsolute ? 'relative' : 'absolute';
-}
-
-function canonicalRemoteUrl({ scp, scpAbsolute, hostname, repositoryPath, protocol, host, encodedPath }) {
-  if (scp) return `git@${hostname}:${scpAbsolute ? '/' : ''}${repositoryPath}`;
-  return `${protocol}//${protocol === 'ssh:' ? 'git@' : ''}${host}/${encodedPath}`;
-}
-
-export function parseRepositoryRemote(value, { authored = false } = {}) {
-  const raw = normalizeRemoteInput(value, authored);
-  if (!raw) return null;
-  const { scp, scpAbsolute, expanded } = expandScpRemote(raw);
-  const match = expanded.match(/^(https?|ssh):\/\/([^/]+)\/(.+)$/i);
-  if (!match) return null;
-  // Validate the original path before URL parsing can collapse dot segments.
-  const segments = pathSegmentsFromRemote(match[3], !scp);
-  if (!segments) return null;
-  const parsed = parseExpandedRemoteUrl(expanded, authored);
-  if (!parsed) return null;
-  const { url, protocol, hostname } = parsed;
-  const provider = forgeProviderForHostname(hostname);
-  const normalized = normalizeRepositorySegments(segments, provider);
-  if (!normalized) return null;
-  const repositoryPath = normalized.join('/');
-  const endpoint = remoteEndpoint(protocol, url.port, provider);
-  const pathKind = remotePathKind(provider, scp, scpAbsolute);
-  // path-contract-allow: url-path -- GitHub repository names are case-insensitive URL identities.
-  const identityPath = provider === 'github' ? repositoryPath.toLowerCase() : repositoryPath;
-  const encodedPath = normalized.map(encodeURIComponent).join('/');
-  const canonicalUrl = canonicalRemoteUrl({
-    scp,
-    scpAbsolute,
-    hostname,
-    repositoryPath,
-    protocol,
-    host: url.host,
-    encodedPath,
-  });
-  return {
-    identity: JSON.stringify([hostname, endpoint, pathKind, identityPath]),
-    url: canonicalUrl,
-    provider,
-    protocol,
-    path: repositoryPath,
-    endpoint,
-  };
+  const port = url.port || (protocol === 'ssh:' ? '22' : protocol === 'https:' ? '443' : '80');
+  const endpoint = provider && ((protocol === 'https:' && port === '443') || (protocol === 'ssh:' && port === '22'))
+    ? 'standard' : `${protocol}${port}`;
+  const pathKind = provider ? 'repository' : scp && !scpAbsolute ? 'relative' : 'absolute';
+  // path-contract-allow: url-path -- GitHub and GitLab repository paths are case-insensitive URL identities.
+  const identityPath = provider === 'github' || provider === 'gitlab' ? repositoryPath.toLowerCase() : repositoryPath;
+  const encodedPath = segments.map(encodeURIComponent).join('/');
+  const canonicalUrl = scp ? `git@${hostname}:${scpAbsolute ? '/' : ''}${repositoryPath}`
+    : `${protocol}//${protocol === 'ssh:' ? 'git@' : ''}${url.host}/${encodedPath}`;
+  return { identity: JSON.stringify([hostname, endpoint, pathKind, identityPath]), url: canonicalUrl, provider, protocol, path: repositoryPath, endpoint };
 }
 
 export function redactRepositoryRemote(value) {
@@ -132,5 +59,13 @@ export function repositorySourceHref(provider, url, revision, source) {
   const end = source.endLine && source.endLine !== source.line
     ? `-${provider === 'github' ? 'L' : ''}${source.endLine}` : '';
   const fragment = source.line ? `#L${source.line}${end}` : '';
-  return `${url}/blob/${revision}/${encodedPath}${fragment}`;
+  if (provider !== 'gitlab') return `${url}/blob/${revision}/${encodedPath}${fragment}`;
+  // GitLab renders Markdown blobs, where line anchors select nothing; the
+  // plain view keeps the cited lines highlighted.
+  const plain = source.line && /\.(?:md|markdown)$/i.test(source.path) ? '?plain=1' : '';
+  return `${url}/-/blob/${revision}/${encodedPath}${plain}${fragment}`;
+}
+
+export function repositoryTreeHref(provider, url, revision) {
+  return `${url}/${provider === 'gitlab' ? '-/' : ''}tree/${revision}`;
 }
