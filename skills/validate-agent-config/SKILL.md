@@ -24,7 +24,8 @@ come from an optional bash file, sourced from
 `${XDG_CONFIG_HOME:-~/.config}/validate-agent-config/config.sh` (override the
 path with `VALIDATE_AGENT_CONFIG`). Values in that file win over the
 environment. The variables and their meaning are listed at the top of
-`scripts/validate.sh`. Setting `CONTEXT` turns on the
+`scripts/validate.sh`. Setting `CONTEXT` to an absolute path (for example
+`"$HOME/AGENTS.md"`) turns on the
 entry-point checks: each harness entry file must link to that shared rules
 file, and each `CLAUDE.md` in `CLAUDE_DIRS` must be a real file whose `@`
 imports resolve.
@@ -34,6 +35,9 @@ imports resolve.
 - `ERROR` requires a fix before treating the machine as healthy: broken
   symlinks, skill links that resolve into a linked git worktree, missing
   paths, missing SKILL.md files, or `name:` not matching the directory. Exit 1.
+  Fix a worktree link from the skill's primary checkout: for this repository,
+  `./link.sh` there replaces links into its other worktrees and links whose
+  checkout is gone.
 - `WARNING` is a deviation that may have a reason: a missing expected tool, a
   skill without trigger phrases, or a SKILL.md over 350 lines (the threshold
   applies even when `references/` or `scripts/` exist). Exit 0.

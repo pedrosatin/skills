@@ -172,6 +172,8 @@ COMMIT: [repo log's language and style; git config author]
 FINAL REPORT: changes by file, test counts, commit hash, unapplied items with reasons.
 ```
 
+Done when the correction commit exists, the required checks pass, and every finding is applied or reported as unapplied with a reason.
+
 ## Step 4a, re-verify product behavior (main agent)
 
 If the correction changed code, re-run the clean-crap gate from step 2 and require exit 0 (or an explicit operator skip) before 4b. Re-run the step 0 scenarios affected by the correction commit. Refresh or replace **after** captures when UI evidence changed; keep the original **before**. If nothing user-facing changed, record that product re-verify was skipped and why. If product verification fails, return to a focused correction. Do not advance to 4b or 5 while the scenario failed or the cleaner is red.
@@ -189,7 +191,7 @@ Follow `../pr-description/SKILL.md` in **draft** mode again so `<worktree>/.scra
 5. If main already contains the feature tree from an earlier squash of the same branch, remove the duplicate history with `git rebase --onto origin/main <old-commit> <branch>`. Confirm identical trees with `git rev-parse <new>^{tree} <old>^{tree}`, then run `git push --force-with-lease`. Force push only your own unmerged branch after checking tree equality. Refresh the PR body via `pr-description` publish if the push rewrote history.
 6. With merge authorization, run `gh-axi pr merge <N> --squash --delete-branch --subject "... (#N)" --body "..."`. Set the subject and body explicitly. Run publication-hygiene on that subject/body before merging.
 7. Clean up with `git pull --ff-only` in the main repo, `git worktree remove --force <worktree>`, and `git branch -D <branch>`. Delete any remaining temp Evidence media that was already confirmed on GitHub.
-8. If main runs CI, check the merge run with `gh-axi run list` and confirm it passed; record a failure as a follow-up. Record migrations and secrets not covered by CI as follow-up work too.
+8. If main runs CI, wait for the merge run (`gh-axi run list`) and require it to pass before step 6. On failure, stop and report the run to the operator. Record migrations and secrets not covered by CI as follow-up work.
 
 ## Step 6, next item
 

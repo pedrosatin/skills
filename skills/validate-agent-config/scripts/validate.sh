@@ -57,15 +57,28 @@ matches_any() {
 }
 not_a_skill() { matches_any "$1" ${IGNORE_ENTRIES[@]+"${IGNORE_ENTRIES[@]}"}; }
 dual_root() { matches_any "$1" ${DUAL_ROOT_SKILLS[@]+"${DUAL_ROOT_SKILLS[@]}"}; }
+# is_linked_worktree <dir>: true for a linked git worktree (its git dir differs
+# from the common dir). Falls back to the .git file when git cannot read it.
+is_linked_worktree() {
+  local gd common
+  if gd="$(git -C "$1" rev-parse --absolute-git-dir 2>/dev/null)" &&
+     common="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null)"; then
+    case "$common" in /*) ;; *) common="$1/$common" ;; esac
+    common="$(cd "$common" 2>/dev/null && pwd -P)" || return 1
+    gd="$(cd "$gd" 2>/dev/null && pwd -P)" || return 1
+    [ "$gd" != "$common" ]
+    return
+  fi
+  [ -f "$1/.git" ] && grep -q '^gitdir: .*/worktrees/' "$1/.git"
+}
 # linked_worktree <path>: print the linked git worktree that contains path, if any
 linked_worktree() {
   local d="$1"
   while [ -n "$d" ] && [ "$d" != / ]; do
-    if [ -f "$d/.git" ]; then
-      grep -q '^gitdir: .*/worktrees/' "$d/.git" && { printf '%s\n' "$d"; return 0; }
+    if [ -e "$d/.git" ]; then
+      is_linked_worktree "$d" && { printf '%s\n' "$d"; return 0; }
       return 1
     fi
-    [ -d "$d/.git" ] && return 1
     d="$(dirname "$d")"
   done
   return 1
@@ -148,6 +161,8 @@ if [ -n "$CONTEXT" ] && [ -f "$CONTEXT" ]; then
       [ -n "$b" ] || continue
       command -v "$b" >/dev/null 2>&1 || warn "binary referenced in $(basename "$CONTEXT") is not on PATH: $b"
     done < <(grep -oE "$CONTEXT_BINARIES" "$CONTEXT" | sort -u)
+  else
+    echo "   (binary checks skipped: CONTEXT_BINARIES not set)"
   fi
 elif [ -n "$CONTEXT" ]; then
   echo "== 2. Shared rules file (skipped: $CONTEXT does not exist)"
@@ -173,7 +188,7 @@ for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
     if [ -L "$e" ]; then
       if [ ! -e "$e" ]; then err "broken symlink: $e -> $(readlink "$e")"
       elif wt="$(linked_worktree "$(resolve "$e")")"; then
-        err "$e resolves into the git worktree $wt; link it from a primary checkout"
+        err "$e resolves into the git worktree $wt; link it from that repository's primary checkout (for this repository, run ./link.sh there; it replaces the link)"
       else ok; fi
       continue
     fi
@@ -330,6 +345,8 @@ fi
 
 # ---------- 5. live probes ----------
 echo "== 5. Live probes"
+[ -n "$COPILOT_MARKER" ] || echo "   (Copilot checks skipped: COPILOT_MARKER not set)"
+[ "${#EXPECTED_TOOLS[@]}" -gt 0 ] || echo "   (tool checks skipped: EXPECTED_TOOLS not set)"
 if [ -n "$COPILOT_MARKER" ] && command -v copilot >/dev/null 2>&1; then
   cout="$(cd "$HOME_DIR" && timeout -k 2s 5s copilot instruction list </dev/null 2>&1 || true)"
   if printf '%s' "$cout" | grep -q "AGENTS.md"; then ok
