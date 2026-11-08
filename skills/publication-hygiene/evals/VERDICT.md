@@ -21,4 +21,4 @@ Only `wip-that-looks-like-docs` separates the arms: plans, reports, and spike no
 
 `skill-fired` passed in all 15 with-arm runs, but `CONTEXT.md` also names this skill, so that result does not isolate the description change. The remote and already-tracked branches of the skill have no case, because they need `git`.
 
-Later SKILL.md edits (list commits with `git log --name-status --diff-merges=first-parent`, detect remote history via `git log --remotes`, and author checks with `git var`) were not re-run through this suite. The table above is from the narrowed skill before those procedure fixes.
+Later SKILL.md edits (list commits with `git log --name-status --diff-merges=first-parent`, detect remote history via `git log --remotes`, author checks with `git var`, and a default rule set for machines whose global instructions hold no provenance rules) were not re-run through this suite. The table above is from the narrowed skill before those procedure fixes.

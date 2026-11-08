@@ -129,6 +129,6 @@ xdg-open .scratch/show-me/show-me-{description}.html
 
 ### Guidance
 
-- Draw diagrams as Unicode box-drawing, ASCII trees, or tables. A raw Mermaid fence does not render in the operator's terminal CLI.
+- Draw diagrams as Unicode box-drawing, ASCII trees, or tables. A raw Mermaid fence does not render in a terminal CLI.
 - Place each visual next to the short text it supports.
 - Reply in the user's conversational language.

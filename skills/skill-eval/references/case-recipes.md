@@ -64,7 +64,7 @@ The script runs outside the sandbox in an empty workspace, with a temporary `HOM
 
 ## Shell and Git inside a run
 
-Granted `Bash` runs under the OS sandbox, which needs `bwrap` and `socat`. Inside it, `/usr/bin/git` is masked with `/dev/null` on this machine: `git` exits 126 whatever the grant, while `git` in `fixture.sh` works. The eval docs imply otherwise, so recheck with one cheap probe after a Claude Code upgrade. Leave the mask in place, and for a skill about Git, grade the decision instead of the command: seed the staged paths or diff as text, tell the agent the operator runs the commit, and grade the message, command, or path list it writes.
+Granted `Bash` runs under the OS sandbox, which needs `bwrap` and `socat`. Inside it, on Linux with Claude Code 2.1.319, `/usr/bin/git` was masked with `/dev/null`: `git` exits 126 whatever the grant, while `git` in `fixture.sh` works. The eval docs imply otherwise, so recheck with one cheap probe after a Claude Code upgrade. Leave the mask in place, and for a skill about Git, grade the decision instead of the command: seed the staged paths or diff as text, tell the agent the operator runs the commit, and grade the message, command, or path list it writes.
 
 The sandbox also mounts the workspace read-only for `Bash`, whatever the grant: `echo x >> file` and `sed -i` fail with `Read-only file system`, while `Write` and `Edit` reach the disk. A file a run must change therefore goes through those tools, and a `Bash` write leaves no trace in the file, so grade the attempt with `tool_used` on `Bash` and an `input_match` for the write forms.
 
