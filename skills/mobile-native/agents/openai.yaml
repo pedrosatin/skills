@@ -1,0 +1,5 @@
+interface:
+  display_name: "Mobile Native"
+  short_description: "Make mobile web apps feel native"
+policy:
+  allow_implicit_invocation: true

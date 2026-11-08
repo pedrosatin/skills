@@ -13,6 +13,7 @@ revision when replacing a package.
 | writing-for-agents | [mattpocock/skills](https://github.com/mattpocock/skills) `skills/productivity/writing-for-agents` | `321658273cb1` (2026-08-19) | MIT © 2026 Matt Pocock |
 | humanizer | [blader/humanizer](https://github.com/blader/humanizer) (see `skills/humanizer/LICENSE`) | v3.1.0 | MIT © 2025 Siqi Chen |
 | show-me | [humanlayer/skills](https://github.com/humanlayer/skills) | `bba9d13ab34f` (2026-09-12) | MIT © 2026 HumanLayer |
+| mobile-native, break-ui | [emilkowalski/skills](https://github.com/emilkowalski/skills) (see each skill's `LICENSE`) | `5206a950b715` (2026-11-08) | MIT © 2026 Emil Kowalski |
 | pr-description (adapted from `pr`) | [mattpocock/skills](https://github.com/mattpocock/skills) `pr` skill; visual kinds via local `show-me` / HumanLayer | `49dd158d1076` (2026-10-09) | MIT © 2026 Matt Pocock; show-me lineage MIT © 2026 HumanLayer |
 | setup, templates only (`templates/issue-tracker.md` adapted from `setup-matt-pocock-skills/issue-tracker-local.md`, `templates/domain.md` from `domain-modeling`) | [mattpocock/skills](https://github.com/mattpocock/skills) `skills/engineering` | `321658273cb1` (2026-08-19) | MIT © 2026 Matt Pocock |
 
@@ -67,6 +68,15 @@ written, and the path is reported.
 `humanizer` description is scoped to English prose ("Rewrite AI-sounding
 English prose", "editing or reviewing English prose") so it does not steal
 PT-BR from `unslop-br`.
+
+`mobile-native` and `break-ui` change only the `description`. The upstream
+text runs past 500 characters and loads in every session, so the overlay
+keeps the triggers under 350 characters and adds Portuguese examples, the
+language of the prompts that should fire them. Reapply after syncing upstream.
+Their bodies mention sibling skills this repo does not vendor (`animate`,
+`animate-expo`, `prototype`, `review-animations`, `emil-design-eng`); leave
+those mentions as they are. `agents/openai.yaml` and `evals/` are local
+additions.
 
 `unslop-br` (original): in PT-BR, the em-dash and parenthetical-crutch ban
 holds even when humanizer is loaded (humanizer §8 otherwise allows parentheses

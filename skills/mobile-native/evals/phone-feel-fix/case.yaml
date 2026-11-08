@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: phone-feel-fix
+description: A page that feels like a website on a phone gets the fixes nobody named.
+tags: [fix]
+context:
+  scaffold_script: fixture.sh

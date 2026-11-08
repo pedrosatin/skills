@@ -79,6 +79,7 @@ Vendored skills and tools (see `ATTRIBUTION.md`):
 - `writing-for-agents`: rubric for documents an agent consumes (skills, `AGENTS.md`, `CLAUDE.md`), from Matt Pocock.
 - `humanizer`: prose editing, from Siqi Chen.
 - `show-me`: concise visual sketches for conversation and PR summaries, from HumanLayer (local path and opener adaptations; see `ATTRIBUTION.md`).
+- `mobile-native`, `break-ui`: make mobile web apps feel native and stress-test UI with worst-case data, from Emil Kowalski (shorter descriptions; see `ATTRIBUTION.md`).
 
 ## Contributing
 
