@@ -31,7 +31,48 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-repo="$(cd "$(dirname "$0")" && pwd)/skills"
+checkout="$(cd "$(dirname "$0")" && pwd)"
+
+# is_linked_worktree <dir>: true for a linked git worktree (its git dir differs
+# from the common dir). Falls back to the .git file when git cannot read it.
+is_linked_worktree() {
+  local gd common
+  if gd="$(git -C "$1" rev-parse --absolute-git-dir 2>/dev/null)" &&
+     common="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null)"; then
+    case "$common" in /*) ;; *) common="$1/$common" ;; esac
+    common="$(cd "$common" 2>/dev/null && pwd -P)" || return 1
+    gd="$(cd "$gd" 2>/dev/null && pwd -P)" || return 1
+    [ "$gd" != "$common" ]
+    return
+  fi
+  [ -f "$1/.git" ] && grep -q '^gitdir: .*/worktrees/' "$1/.git"
+}
+
+# Installed skills must survive worktree removal: link only from the primary checkout.
+if is_linked_worktree "$checkout"; then
+  primary="$(git -C "$checkout" worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')" || primary=""
+  echo "link.sh: $checkout is a linked git worktree; run it from the primary checkout (${primary:-unknown})." >&2
+  exit 1
+fi
+repo="$checkout/skills"
+# Other worktrees of this repository, one path per line.
+worktrees="$(git -C "$checkout" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')" || worktrees=""
+
+# repairable <link> <name>: the link points at this skill inside another worktree
+# of this repository, or at a checkout that no longer exists. Either way it is
+# safe to replace with a link to this checkout.
+repairable() {
+  local t wt
+  t="$(readlink "$1")"
+  case "$t" in /*/skills/"$2") ;; *) return 1 ;; esac
+  while IFS= read -r wt; do
+    [ -n "$wt" ] && [ "$wt" != "$checkout" ] || continue
+    [ "$t" = "$wt/skills/$2" ] && return 0
+  done <<WORKTREES
+$worktrees
+WORKTREES
+  [ ! -e "$1" ] && [ ! -d "${t%/skills/$2}" ]
+}
 default="$HOME/.agents/skills"
 dest="${AGENTS_SKILLS_DIR:-$default}"
 mkdir -p "$dest"
@@ -43,7 +84,12 @@ for src in "$repo"/*/; do
   if [ -L "$target" ]; then
     case "$(readlink "$target")" in
       "$repo"/*) ;;
-      *) echo "skipped: $target points outside the repo" >&2; continue ;;
+      *)
+        if repairable "$target" "$name"; then
+          echo "relinked: $target (was $(readlink "$target"))"
+        else
+          echo "skipped: $target points outside the repo" >&2; continue
+        fi ;;
     esac
     ln -sfn "${src%/}" "$target"
   elif [ -e "$target" ]; then
@@ -100,7 +146,12 @@ link_to_harness() {
     if [ -L "$target" ]; then
       case "$(readlink "$target")" in
         "$link_src" | "$default/$name" | "$repo/$name" | "../../.agents/skills/$name") ;;
-        *) echo "  skipped ($harness_label): $target points outside repo/agents" >&2; continue ;;
+        *)
+          if repairable "$target" "$name"; then
+            echo "  relinked ($harness_label): $target (was $(readlink "$target"))"
+          else
+            echo "  skipped ($harness_label): $target points outside repo/agents" >&2; continue
+          fi ;;
       esac
       ln -sfn "$link_src" "$target"
     elif [ -e "$target" ]; then
@@ -120,11 +171,12 @@ if [ "$dest" = "$default" ]; then
     prune "$root" "$default/*" "../../.agents/skills/*"
   done
 
-  # Collect available harnesses (existing real directories)
+  # Collect installed harnesses: the skill root is a real directory, or the
+  # harness config directory exists and the skill root can be created in it.
   available_entries=()
   for entry in "${KNOWN_HARNESSES[@]}"; do
     dir="${entry%%:*}"
-    if [ -d "$dir" ] && [ ! -L "$dir" ]; then
+    if [ ! -L "$dir" ] && { [ -d "$dir" ] || { [ ! -e "$dir" ] && [ -d "$(dirname "$dir")" ]; }; }; then
       available_entries+=("$entry")
     fi
   done

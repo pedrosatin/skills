@@ -46,8 +46,7 @@ gh-axi pr edit <n> --title "..." --body-file <repo>/.scratch/pr-description/body
 On a later edit of the same PR, read the remote body first (`gh-axi pr view <n> --full`). Keep existing GitHub asset URLs. Re-attach only new local files. Do not `--body-file` a draft that still contains deleted temp paths.
 
 6. Confirm the remote body (and attachments) with `gh-axi pr view <n> --full`. Copy that confirmed remote body, with GitHub asset URLs, into `<repo>/.scratch/pr-description/body.md`. Delete temp media only after that copy. On upload failure, keep the temp file for retry; do not commit it.
-7. When `link_pull_request` is available in the harness, link the PR URL for the thread.
-8. Never merge, close, or approve from this skill.
+7. Never merge, close, or approve from this skill.
 
 Partial create failures matter: `pr create` can open the PR and still fail on an attachment. Before any create retry, list again by `head` and switch to edit.
 
@@ -84,14 +83,9 @@ A missing screenshot does not invalidate a verification that already ran. Do not
 
 For a Summary visual of ownership, flow, or change shape, read `../show-me/references/visual-selection.md` directly. This shared reference does not invoke `/show-me`.
 
-## Media lifecycle
+## Media
 
-1. Capture outside the repo (harness temp or `/tmp`).
-2. Keep through draft review when useful.
-3. On publish, `--attach '<path>#<alt>'` (repeatable).
-4. After `pr view` shows the assets, replace the local body with the remote body (GitHub URLs), then delete local temps.
-5. On upload failure, retain for retry; never commit media.
-6. Later edits start from the remote body so published URLs survive.
+Capture screenshots and recordings outside the repo (harness temp or `/tmp`) and keep them through draft review. Never commit them. Publish steps 5 and 6 own upload, retry, and cleanup.
 
 ## Non-goals
 

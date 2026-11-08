@@ -4,7 +4,7 @@ description: "Initialize a project for local specs and tickets: scaffolds .scrat
 disable-model-invocation: true
 ---
 
-# /setup (and /init)
+# /setup
 
 Configure the repository for the full local software engineering workflow:
 - **Specs & tickets**: local tracking in `.scratch/` on the primary worktree for `/to-spec` and `/to-tickets`.
@@ -81,9 +81,7 @@ Maintainers: `node scripts/generate-hub.mjs --fixture` smokes the generator agai
 
 ### Project Hub design contract
 
-Before changing the generator or the hub's appearance, read `templates/hub-design-contract.md`.
-
-Operator-facing constraints: one offline file, no CDN; Kanban scan, formatted Markdown (tickets, specs, rules, GRAPH_REPORT), and a copyable dispatch prompt; details in a right-hand side panel; zinc/slate neutrals with a green accent by default, brand color inferred from CSS variables, theme-color, or Tailwind when the evidence is reliable. Generic LLM indigo/purple, emoji in interface labels, theatrical hover lift, and pill-heavy rounding stay out of the visual identity.
+Before changing the generator or the hub's appearance, read `templates/hub-design-contract.md`. It owns the hub's layout, tokens, and rejected patterns.
 
 ### 5. Finish and explain the workflow
 

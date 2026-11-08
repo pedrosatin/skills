@@ -4,7 +4,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 
 ## Scratch root (primary worktree)
 
-Durable tracker content belongs on the repository's **primary worktree** — the first path in `git worktree list`, usually the checkout under `~/Work/...`. Do **not** keep specs, tickets, grilling decisions, STATUS, research notes, or the Project Hub only inside disposable agent worktrees (`~/.t3/worktrees/`, `~/.cache/worktrees/`, `~/worktrees/`, `.worktrees/`). Those checkouts are removed often and the files disappear with them.
+Durable tracker content belongs on the repository's **primary worktree**, the first path in `git worktree list`. Keep specs, tickets, grilling decisions, status notes, research notes, and the Project Hub there, not only inside the linked worktrees that agents and loops create (for example under `~/.cache/worktrees/` or `.worktrees/`). Those checkouts are removed often and the files disappear with them.
 
 Resolve the scratch root before creating or updating tracker files:
 

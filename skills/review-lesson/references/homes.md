@@ -26,7 +26,7 @@ The lesson needs judgment, so no check can decide it, but it matters only during
 
 The lesson is a multi-step procedure used in one kind of work, not a rule. Patch the skill that owns that work before writing a new one, and prove the change with `../../skill-eval/SKILL.md`.
 
-- Reviews of robot changes keep missing selector drift. Add the check to the robot review workflow.
+- Reviews of database migrations keep missing a table-locking `ALTER TABLE`. Add the check to the migration review skill.
 
 ## `AGENTS.md` line
 

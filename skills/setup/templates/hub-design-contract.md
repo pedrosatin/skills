@@ -1,6 +1,6 @@
 # Project Hub design contract
 
-Reference document for anyone generating or changing the dashboard in `.scratch/index.html` through the `setup` skill. It aligns the hub with `frontend-ui-engineering` and prevents regression to generic LLM visuals.
+Reference document for anyone generating or changing the dashboard in `.scratch/index.html` through the `setup` skill. It keeps the hub from regressing to generic LLM visuals.
 
 ## Screen purpose
 
@@ -25,7 +25,7 @@ Tickets, specs, rules (AGENTS/CLAUDE/CONTEXT), and graph reports use formatted M
 
 The main reader must not dump escaped source into `<pre>` or an equivalent monospaced view. Reserve `pre`/`code` for fenced blocks and inline code.
 
-Parser implementation details and the Markdown body class belong in later tickets. This contract defines observable behavior.
+This contract defines observable behavior; the parser and CSS classes live in the generator.
 
 ## Details in a side panel
 
@@ -41,7 +41,7 @@ CSS values and variable names are defined in the generator. Tokens use operation
 
 ## Rejected patterns
 
-These terms align with the `frontend-ui-engineering` skill's "Avoid the AI Aesthetic" section and the hub's decisions:
+The hub rejects these patterns:
 
 | Rejected pattern | Reason |
 |---|---|
@@ -52,4 +52,4 @@ These terms align with the `frontend-ui-engineering` skill's "Avoid the AI Aesth
 | Required CDN (remote CSS/JavaScript/fonts) | The hub must open offline through `file://`. |
 | Excessive rounded corners or pills as the visual identity | Maximum rounding and widespread pills signal generic LLM aesthetics. |
 
-Future generator improvements must follow this contract. A proposal that reintroduces a pattern from the table is rejected until an explicit decision updates this document and the corresponding section in `SKILL.md`.
+Future generator improvements must follow this contract. A proposal that reintroduces a pattern from the table is rejected until an explicit decision updates this document.

@@ -1,19 +1,41 @@
 #!/usr/bin/env bash
-# validate-agent-config: validate instruction entry points, CONTEXT.md, skills, and repository sync
-# Layout source of truth: ~/.agents/SKILLS.md and the header of ~/.agents/CONTEXT.md
-# Invocation conventions (user-invoked vs model-invoked): mattpocock/skills .agents/invocation.md
+# validate-agent-config: check harness entry points, the shared rules file,
+# skill roots, SKILL.md conventions, and sync with this repository.
+# Machine-specific settings come from an optional config file; see SKILL.md.
 set -u
 HOME_DIR="${HOME:?}"
-CONTEXT="$HOME_DIR/.agents/CONTEXT.md"
 AGENTS_SKILLS="$HOME_DIR/.agents/skills"
 CLAUDE_SKILLS="$HOME_DIR/.claude/skills"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Defaults. The config file may override any of them.
+CONTEXT=""               # shared rules file that harness entry points link to or import
+CLAUDE_DIRS=("$HOME_DIR/.claude")  # Claude Code config dirs whose CLAUDE.md imports are checked
+CONTEXT_BINARIES=""      # ERE: binaries named in CONTEXT that must be on PATH
+COPILOT_MARKER=""        # text that ~/.copilot/copilot-instructions.md must contain
+EXPECTED_TOOLS=()        # CLIs whose absence is a warning
+IGNORE_ENTRIES=()        # globs: entries in the skill roots that are not skills (e.g. a sync folder)
+DUAL_ROOT_SKILLS=()      # globs: skills a tool installs as real directories in both roots
+CHECK_UNPUBLISHED=0      # 1: warn about installed skills that are missing from the repository
+LOCAL_ONLY_SKILLS=()     # globs: installed skills that stay out of the repository on purpose
+SKILLS_REPO="${SKILLS_REPO:-}"  # repository to lint and sync; found through the script path when empty
+
+CONFIG="${VALIDATE_AGENT_CONFIG:-${XDG_CONFIG_HOME:-$HOME_DIR/.config}/validate-agent-config/config.sh}"
+if [ -n "${VALIDATE_AGENT_CONFIG:-}" ] && [ ! -f "$CONFIG" ]; then
+  echo "ERROR:  VALIDATE_AGENT_CONFIG points to a missing file: $CONFIG" >&2
+  exit 1
+fi
+# Values in the config file win over the environment.
+# shellcheck source=/dev/null
+if [ -f "$CONFIG" ]; then . "$CONFIG"; fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_FROM_SCRIPT="$(cd "$SCRIPT_DIR/../../.." 2>/dev/null && pwd)"
-if [ -d "$REPO_FROM_SCRIPT/skills" ] && [ -f "$REPO_FROM_SCRIPT/ATTRIBUTION.md" ]; then
-  REPO="${SKILLS_REPO:-$REPO_FROM_SCRIPT}"
+if [ -n "$SKILLS_REPO" ]; then
+  REPO="$SKILLS_REPO"
+elif [ -d "$REPO_FROM_SCRIPT/skills" ] && [ -f "$REPO_FROM_SCRIPT/ATTRIBUTION.md" ]; then
+  REPO="$REPO_FROM_SCRIPT"
 else
-  REPO="${SKILLS_REPO:-$HOME_DIR/Work/personal/skills}"
+  REPO=""
 fi
 
 errors=0; warnings=0; checks=0
@@ -24,25 +46,84 @@ ok()   { checks=$((checks+1)); }
 
 resolve() { readlink -f "$1" 2>/dev/null; }
 skill_exists() { [ -e "$AGENTS_SKILLS/$1" ] || [ -e "$CLAUDE_SKILLS/$1" ]; }
+# matches_any <name> <glob>...: true when name matches one of the globs
+matches_any() {
+  local name="$1" pat; shift
+  for pat in "$@"; do
+    # shellcheck disable=SC2254
+    case "$name" in $pat) return 0 ;; esac
+  done
+  return 1
+}
+not_a_skill() { matches_any "$1" ${IGNORE_ENTRIES[@]+"${IGNORE_ENTRIES[@]}"}; }
+dual_root() { matches_any "$1" ${DUAL_ROOT_SKILLS[@]+"${DUAL_ROOT_SKILLS[@]}"}; }
+# is_linked_worktree <dir>: true for a linked git worktree (its git dir differs
+# from the common dir). Falls back to the .git file when git cannot read it.
+is_linked_worktree() {
+  local gd common
+  if gd="$(git -C "$1" rev-parse --absolute-git-dir 2>/dev/null)" &&
+     common="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null)"; then
+    case "$common" in /*) ;; *) common="$1/$common" ;; esac
+    common="$(cd "$common" 2>/dev/null && pwd -P)" || return 1
+    gd="$(cd "$gd" 2>/dev/null && pwd -P)" || return 1
+    [ "$gd" != "$common" ]
+    return
+  fi
+  [ -f "$1/.git" ] && grep -q '^gitdir: .*/worktrees/' "$1/.git"
+}
+# linked_worktree <path>: print the linked git worktree that contains path, if any
+linked_worktree() {
+  local d="$1"
+  while [ -n "$d" ] && [ "$d" != / ]; do
+    if [ -e "$d/.git" ]; then
+      is_linked_worktree "$d" && { printf '%s\n' "$d"; return 0; }
+      return 1
+    fi
+    d="$(dirname "$d")"
+  done
+  return 1
+}
+# same_path <a> <b>: both resolve, to the same file (fails closed without readlink -f)
+same_path() { local a b; a="$(resolve "$1")"; b="$(resolve "$2")"; [ -n "$a" ] && [ "$a" = "$b" ]; }
 
 # ---------- 1. instruction entry points ----------
 echo "== 1. Instruction entry points"
-[ -f "$CONTEXT" ] || { echo "ERROR:  missing $CONTEXT"; exit 1; }
+if [ -z "$CONTEXT" ]; then
+  echo "   (entry-point checks skipped: CONTEXT not configured)"
+elif [ ! -f "$CONTEXT" ]; then
+  err "shared rules file $CONTEXT does not exist"
+fi
 
-for f in "$HOME_DIR/AGENTS.md" \
-         "$HOME_DIR/.config/opencode/AGENTS.md" \
-         "$HOME_DIR/.codex/AGENTS.md" \
-         "$HOME_DIR/.gemini/GEMINI.md" \
-         "$HOME_DIR/.grok/AGENTS.md"; do
-  if [ -L "$f" ] && [ -e "$f" ]; then
-    if [ "$(resolve "$f")" = "$CONTEXT" ]; then ok
-    else err "$(basename "$(dirname "$f")")/$(basename "$f") resolves to $(resolve "$f"), expected $CONTEXT"; fi
-  elif [ -e "$f" ]; then warn "$f exists but is NOT a symlink (should point to CONTEXT.md)"
-  else err "$f does not exist"; fi
+# <harness config dir>:<entry file that should link to CONTEXT>
+ENTRY_POINTS=(
+  "$HOME_DIR:$HOME_DIR/AGENTS.md"
+  "$HOME_DIR/.config/opencode:$HOME_DIR/.config/opencode/AGENTS.md"
+  "$HOME_DIR/.codex:$HOME_DIR/.codex/AGENTS.md"
+  "$HOME_DIR/.gemini:$HOME_DIR/.gemini/GEMINI.md"
+  "$HOME_DIR/.grok:$HOME_DIR/.grok/AGENTS.md"
+)
+for entry in "${ENTRY_POINTS[@]}"; do
+  dir="${entry%%:*}"; f="${entry#*:}"
+  [ -d "$dir" ] || continue
+  if [ -L "$f" ] && [ ! -e "$f" ]; then err "broken symlink: $f -> $(readlink "$f")"; continue; fi
+  [ -n "$CONTEXT" ] || continue
+  if [ -e "$f" ] && same_path "$f" "$CONTEXT"; then ok
+  elif [ -L "$f" ]; then err "$f resolves to $(resolve "$f"), expected $CONTEXT"
+  elif [ -e "$f" ]; then warn "$f exists but is NOT a symlink (should point to $CONTEXT)"
+  else err "$f does not exist (should be a symlink to $CONTEXT)"; fi
 done
 
-for f in "$HOME_DIR/.claude/CLAUDE.md"; do
-  if [ ! -f "$f" ] || [ -L "$f" ]; then err "$f should be a REAL file with @import (missing or a symlink)"; continue; fi
+for d in ${CLAUDE_DIRS[@]+"${CLAUDE_DIRS[@]}"}; do
+  [ -d "$d" ] || continue
+  f="$d/CLAUDE.md"
+  if [ ! -e "$f" ] && [ ! -L "$f" ]; then
+    [ -z "$CONTEXT" ] || err "$f does not exist (should be a REAL file with @import)"
+    continue
+  fi
+  if [ -L "$f" ]; then
+    if [ -n "$CONTEXT" ]; then err "$f should be a REAL file with @import, not a symlink"; continue; fi
+    [ -e "$f" ] || { err "broken symlink: $f -> $(readlink "$f")"; continue; }
+  fi
   ok
   while IFS= read -r ref; do
     [ -n "$ref" ] || continue
@@ -55,37 +136,60 @@ for f in "$HOME_DIR/.claude/CLAUDE.md"; do
   done < <(grep -E '^@' "$f" | sed 's/^@//' | sed 's/\r$//')
 done
 
-CI="$HOME_DIR/.copilot/copilot-instructions.md"
-if [ -f "$CI" ]; then
-  grep -q "context-global-pointer" "$CI" && ok || warn "$CI missing the context-global-pointer block (Copilot misses global rules in projects)"
-else err "$CI does not exist"; fi
+if [ -n "$COPILOT_MARKER" ]; then
+  CI="$HOME_DIR/.copilot/copilot-instructions.md"
+  if [ -f "$CI" ]; then
+    grep -qF "$COPILOT_MARKER" "$CI" && ok || warn "$CI lacks the '$COPILOT_MARKER' block (Copilot misses global rules in projects)"
+  else err "$CI does not exist"; fi
+fi
 
-# ---------- 2. CONTEXT.md hygiene ----------
-echo "== 2. Paths and binaries referenced in CONTEXT.md"
-while IFS= read -r p; do
-  [ -n "$p" ] || continue
-  [ -e "$HOME_DIR${p#\~}" ] || warn "path referenced in CONTEXT.md does not exist: $p"
-done < <(grep -oE '~(/[a-zA-Z0-9._/-]+)' "$CONTEXT" | sort -u)
+# ---------- 2. shared rules file hygiene ----------
+if [ -n "$CONTEXT" ] && [ -f "$CONTEXT" ]; then
+  echo "== 2. Paths and binaries referenced in $CONTEXT"
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    [ -e "$HOME_DIR${p#\~}" ] || warn "path referenced in $(basename "$CONTEXT") does not exist: $p"
+  done < <(grep -oE '~(/[a-zA-Z0-9._/-]+)' "$CONTEXT" | sort -u)
 
-while IFS= read -r p; do
-  [ -n "$p" ] || continue
-  [ -e "$HOME_DIR${p#\~}" ] || err "skill referenced in CONTEXT.md does not exist: $p"
-done < <(grep -oE '~/\.?[a-zA-Z0-9._/-]*skills/[a-zA-Z0-9._-]+/SKILL\.md' "$CONTEXT" | sort -u)
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    [ -e "$HOME_DIR${p#\~}" ] || err "skill referenced in $(basename "$CONTEXT") does not exist: $p"
+  done < <(grep -oE '~/\.?[a-zA-Z0-9._/-]*skills/[a-zA-Z0-9._-]+/SKILL\.md' "$CONTEXT" | sort -u)
 
-while IFS= read -r b; do
-  [ -n "$b" ] || continue
-  command -v "$b" >/dev/null 2>&1 || warn "binary referenced in CONTEXT.md is not on PATH: $b"
-done < <(grep -oE '\b[a-z]+(-[a-z]+)*-axi\b|\brtk\b' "$CONTEXT" | sort -u)
+  if [ -n "$CONTEXT_BINARIES" ]; then
+    while IFS= read -r b; do
+      [ -n "$b" ] || continue
+      command -v "$b" >/dev/null 2>&1 || warn "binary referenced in $(basename "$CONTEXT") is not on PATH: $b"
+    done < <(grep -oE "$CONTEXT_BINARIES" "$CONTEXT" | sort -u)
+  else
+    echo "   (binary checks skipped: CONTEXT_BINARIES not set)"
+  fi
+elif [ -n "$CONTEXT" ]; then
+  echo "== 2. Shared rules file (skipped: $CONTEXT does not exist)"
+else
+  echo "== 2. Shared rules file (skipped: CONTEXT not configured)"
+fi
 
 # ---------- 3. skills: structure ----------
 echo "== 3. Skills (structure)"
 for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
-  [ -d "$root" ] || { err "missing skill root: $root"; continue; }
+  if [ ! -d "$root" ]; then
+    if [ "$root" = "$CLAUDE_SKILLS" ]; then
+      [ -d "$HOME_DIR/.claude" ] && warn "missing skill root: $root (Claude Code sees no skills; run ./link.sh --all)"
+    else
+      err "missing skill root: $root (run ./link.sh)"
+    fi
+    continue
+  fi
   for e in "$root"/*; do
+    [ -e "$e" ] || [ -L "$e" ] || continue
     name="$(basename "$e")"
-    [ "$name" = "synced" ] && continue
+    not_a_skill "$name" && continue
     if [ -L "$e" ]; then
-      if [ -e "$e" ]; then ok; else err "broken symlink: $e -> $(readlink "$e")"; fi
+      if [ ! -e "$e" ]; then err "broken symlink: $e -> $(readlink "$e")"
+      elif wt="$(linked_worktree "$(resolve "$e")")"; then
+        err "$e resolves into the git worktree $wt; link it from that repository's primary checkout (for this repository, run ./link.sh there; it replaces the link)"
+      else ok; fi
       continue
     fi
     [ -d "$e" ] || continue
@@ -97,16 +201,19 @@ done
 for e in "$AGENTS_SKILLS"/*; do
   name="$(basename "$e")"
   [ -d "$e" ] && [ ! -L "$e" ] || continue
+  not_a_skill "$name" && continue
+  dual_root "$name" && { ok; continue; }
   c="$CLAUDE_SKILLS/$name"
   if [ -d "$c" ] && [ ! -L "$c" ]; then
-    case "$name" in ai-memory-*) ok ;; *) err "$name is a REAL directory in both roots (drift); one must be a symlink" ;; esac
-  fi
+    err "$name is a REAL directory in both roots (drift); one must be a symlink"
+  else ok; fi
 done
 
 for e in "$CLAUDE_SKILLS"/*; do
   name="$(basename "$e")"
   [ -d "$e" ] && [ ! -L "$e" ] || continue
-  case "$name" in ai-memory-*|synced) continue ;; esac
+  not_a_skill "$name" && continue
+  dual_root "$name" && continue
   [ -e "$AGENTS_SKILLS/$name" ] || warn "$name is a real directory only in ~/.claude/skills; consider moving it to ~/.agents/skills"
 done
 
@@ -229,7 +336,7 @@ for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
     lint_skill_dir "$e"
   done
 done
-if [ -d "$REPO/skills" ]; then
+if [ -n "$REPO" ] && [ -d "$REPO/skills" ]; then
   for d in "$REPO"/skills/*/; do
     [ -f "$d/SKILL.md" ] || continue
     lint_skill_dir "${d%/}"
@@ -238,17 +345,20 @@ fi
 
 # ---------- 5. live probes ----------
 echo "== 5. Live probes"
-if command -v copilot >/dev/null 2>&1; then
+[ -n "$COPILOT_MARKER" ] || echo "   (Copilot checks skipped: COPILOT_MARKER not set)"
+[ "${#EXPECTED_TOOLS[@]}" -gt 0 ] || echo "   (tool checks skipped: EXPECTED_TOOLS not set)"
+if [ -n "$COPILOT_MARKER" ] && command -v copilot >/dev/null 2>&1; then
   cout="$(cd "$HOME_DIR" && timeout -k 2s 5s copilot instruction list </dev/null 2>&1 || true)"
   if printf '%s' "$cout" | grep -q "AGENTS.md"; then ok
   else warn "copilot instruction list (in the home directory) does not list ~/AGENTS.md; the global rule will not load"; fi
-else warn "copilot is not installed; probe skipped"; fi
-if command -v agent >/dev/null 2>&1; then ok; else warn "Cursor CLI (agent) is not installed"; fi
-if command -v opencode >/dev/null 2>&1; then ok; else warn "opencode is not installed"; fi
+fi
+for t in ${EXPECTED_TOOLS[@]+"${EXPECTED_TOOLS[@]}"}; do
+  if command -v "$t" >/dev/null 2>&1; then ok; else warn "$t is not on PATH"; fi
+done
 
 # ---------- 6. sync with the versioned repository ----------
-echo "== 6. Repository sync ($REPO)"
-if [ -d "$REPO/skills" ]; then
+if [ -n "$REPO" ] && [ -d "$REPO/skills" ]; then
+  echo "== 6. Repository sync ($REPO)"
   [ -f "$REPO/ATTRIBUTION.md" ] && ok || err "repository missing ATTRIBUTION.md"
   [ -f "$REPO/LICENSE" ] && ok || err "repository missing LICENSE"
   for d in "$REPO"/skills/*/; do
@@ -256,23 +366,29 @@ if [ -d "$REPO/skills" ]; then
     name="$(basename "$d")"
     # 6.1 every repository skill has an attribution entry
     grep -qE "(^|[^a-z0-9-])$name([^a-z0-9-]|$)" "$REPO/ATTRIBUTION.md" || warn "$name: missing entry in ATTRIBUTION.md"
-    # 6.2 if installed, contents match the repository
+    # 6.2 an installed copy (not a symlink) matches the repository
     inst="$AGENTS_SKILLS/$name"
     if [ -d "$inst" ] && [ ! -L "$inst" ]; then
       if diff -rq "$d" "$inst" >/dev/null 2>&1; then ok; else warn "$name: repository and ~/.agents/skills differ (edit in the repository and copy)"; fi
     fi
   done
-  # 6.3 locally authored skill installed outside the repository (except known private skills)
-  for e in "$AGENTS_SKILLS"/*; do
-    name="$(basename "$e")"
-    [ -d "$e" ] || continue
-    case "$name" in
-      ai-memory-*|unslop|find-skills|graphify|omarchy|diagnose-crash|weekly-*) continue ;;
-    esac
-    [ -d "$REPO/skills/$name" ] || warn "$name: locally authored and installed but missing from the repository"
-  done
+  # 6.3 installed skills missing from the repository (opt-in)
+  if [ "$CHECK_UNPUBLISHED" = 1 ]; then
+    for e in "$AGENTS_SKILLS"/*; do
+      name="$(basename "$e")"
+      [ -d "$e" ] || continue
+      not_a_skill "$name" && continue
+      matches_any "$name" ${LOCAL_ONLY_SKILLS[@]+"${LOCAL_ONLY_SKILLS[@]}"} && continue
+      [ -d "$REPO/skills/$name" ] || warn "$name: installed but missing from the repository"
+    done
+  else
+    echo "   (unpublished-skill check off: set CHECK_UNPUBLISHED=1)"
+  fi
+elif [ -n "$SKILLS_REPO" ]; then
+  echo "== 6. Repository sync"
+  warn "SKILLS_REPO=$SKILLS_REPO has no skills/ directory; repository lint and sync skipped"
 else
-  warn "repository $REPO not found; sync skipped"
+  echo "== 6. Repository sync (skipped: no repository found; set SKILLS_REPO)"
 fi
 
 # ---------- result ----------

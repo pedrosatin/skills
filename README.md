@@ -8,17 +8,9 @@ Criado por [@pedrosatin](https://github.com/pedrosatin)
 
 Each folder in `skills/` is self-contained (`SKILL.md` and supporting files).
 
-## Language conventions
-
-Skill instructions, descriptions, internal prompts, supporting documentation,
-and code comments are in English. `unslop-br` stays entirely in Brazilian
-Portuguese because its rules and examples target PT-BR writing.
-
-Conversation follows the user's language. Generated prose follows the target
-project's language conventions. Portuguese trigger examples, quoted sources,
-proper names, and localization catalogs retain their original language.
-The Project Hub interface currently uses Portuguese; its labels are maintained
-separately from the skill instructions.
+Skill text is in English, except `unslop-br`, which targets PT-BR writing and
+stays in Brazilian Portuguese (`AGENTS.md` has the full convention). The
+Project Hub interface is in Portuguese.
 
 ## Install
 
@@ -36,12 +28,30 @@ git clone https://github.com/pedrosatin/skills.git
 (Claude Code, Codex, Gemini) and prompts you to link them as well.
 Use `./link.sh --all` to link all detected harnesses without prompting, or
 `./link.sh -y` for non-interactive default mode.
+A harness counts as installed when its config directory exists (`~/.claude`,
+`~/.codex`, `~/.gemini`); the skill root is created when missing.
 It skips existing directories and links pointing outside the repo, with a
-warning. The script is idempotent and removes broken links pointing to the repo
+warning. Run it from the primary checkout: it refuses to run from a linked git
+worktree, because installed skills would break when the worktree is removed.
+Links an earlier run made into another worktree of this repo, or into a checkout
+that no longer exists, are replaced.
+The script is idempotent and removes broken links pointing to the repo
 or `~/.agents/skills`. Run it again after each `git pull`.
 
 OpenCode reads `~/.agents/skills` directly. Claude Code, Codex, and Gemini read
 from their respective skill roots via the created symlinks.
+
+## Requirements
+
+- Bash for `link.sh` and `validate-agent-config`.
+- Node.js 20 or later for the bundled scripts (`setup`, `board`, `clean-crap`,
+  `archify`). `clean-crap` also needs `npm ci --prefix skills/clean-crap` once.
+- [`gh-axi`](https://github.com/kunchenguid/gh-axi) for the GitHub skills
+  (`babysit-prs`, `pr-description`, `pr-loop`); `pr-description` attachments
+  need `gh` 2.99.0 or later.
+- Claude Code for `skill-eval`, which runs `claude plugin eval`.
+- Optional: Graphify (`uv tool install graphifyy`) for `graphify` and the
+  graph links in the Project Hub.
 
 ## Contents
 

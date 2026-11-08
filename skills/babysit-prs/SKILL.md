@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /babysit-prs
 
-Review every open PR in the current repository. Merge what is safe. Flag what is not. Never guess. Never merge with doubts.
+Review every open PR in the current repository. Merge what is safe. Flag what is not.
 
 Use `gh-axi` for GitHub. Read TOON output without piping it to jq.
 
@@ -33,7 +33,7 @@ gh-axi api /repos/{owner}/{repo}/pulls/<number>
 ### 3. Cross-PR conflict detection
 
 Before reviewing individually, scan all diffs together for:
-- **Duplicate changes**: two PRs touching the same lines with the same intent → flag the older one as superseded
+- **Duplicate changes**: two PRs touching the same lines with the same intent → flag the older one as superseded, naming the PR that supersedes it
 - **Conflicting changes**: two PRs modifying the same file in incompatible ways → flag both, explain which to keep
 - **Sequential dependencies**: PR A must merge before PR B can be valid (e.g., B adds tests for a function A removes)
 
@@ -90,12 +90,12 @@ Re-read the REST pull object immediately before merging: require `head.sha` to e
 
 ```bash
 gh-axi pr ready <number>
-gh-axi pr merge <number> --match-head-commit <verified-sha> --squash --subject "<type>(<scope>): <short description>" --body "<body>"
+gh-axi pr merge <number> --match-head-commit <verified-sha> --squash --subject "<subject>" --body "<body>"
 ```
 
 Never pass `--admin`. Merge only what GitHub already lets merge normally (`mergeable_state` is `clean`). If the merge is refused by branch protection — required reviews, required checks not yet green, or an unmet gate — leave the PR as-is and comment that it's ready but blocked on `<the specific gate>`, for the author to merge.
 
-Commit subject format: Conventional Commits (`fix:`, `feat:`, `chore:`, `perf:`, `test:`, `refactor:`). Keep ≤72 chars. Set `--subject` and `--body` explicitly from the PR.
+Write the squash subject in the repository's commit convention, read from `git log`, in 72 characters or fewer. Set `--subject` and `--body` explicitly from the PR.
 
 **To leave a PR as draft with comment** (already draft):
 
@@ -118,7 +118,7 @@ gh-axi pr close <number>
 ```
 
 Only close if BOTH:
-- the PR's author is the authenticated user (read `login` from `gh-axi api /user`) or a bot acting on their behalf (e.g. `jules[bot]`) — never close a PR authored by someone else
+- the PR's author is the authenticated user (read `login` from `gh-axi api /user`) or a bot account acting on their behalf — never close a PR authored by someone else
 - the reason is superseded-by-merged-PR, duplicate-in-batch, or no-op (analysis/doc only, zero diff) — i.e. reasons where reopening later has no cost
 
 Do NOT close PRs flagged for author-judgment conflicts, ambiguous intent, or "needs manual test" — those need the author's eyes, not deletion. Do NOT force-push. Do NOT rebase branches.
@@ -130,18 +130,6 @@ After processing all PRs, output a summary table:
 | PR | Title | Action | Reason |
 |----|-------|--------|--------|
 | #N | title | ✅ Merged / 🗑️ Closed+comment / ⚠️ Draft+comment / ⏭️ Skipped | one line |
-
----
-
-## Decision guide
-
-Cases the merge criteria do not already cover:
-
-| Situation | Action |
-|-----------|--------|
-| Duplicate of an already-merged PR | Comment naming the merged PR; close if own |
-| Adds tests for a file another PR removes | Comment about the conflict; leave as draft (do not close) |
-| No code changes (analysis/doc only PR) | Comment explaining it's a no-op; close if own |
 
 ---
 

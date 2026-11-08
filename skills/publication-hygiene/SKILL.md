@@ -25,7 +25,7 @@ Otherwise:
 
 ## Provenance
 
-The rules live in the Git section of `~/.agents/CONTEXT.md`; read it when it is not in context. If that file cannot be read, stop and ask the operator — do not pass the gate without the rules. Apply them to the exact text going out: commit subject, body, and trailers; branch name; PR title and body; new comments; squash subject and body; and added lines in the diff. Before creating a commit, check `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT` against the operator's `git config user.name` and `user.email`. Before a push or PR, also scan `git log --format='%an <%ae> / %cn <%ce>' <base>..HEAD`.
+Use the provenance rules in the user-level instructions the harness loads (for example `~/AGENTS.md`, `~/.claude/CLAUDE.md`, or `~/.codex/AGENTS.md`) and in the files they import; read them when they are not in context. If none of them holds such rules, stop and ask the operator; do not pass the gate without the rules. Apply them to the exact text going out: commit subject, body, and trailers; branch name; PR title and body; new comments; squash subject and body; and added lines in the diff. Before creating a commit, check `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT` against the operator's `git config user.name` and `user.email`. Before a push or PR, also scan `git log --format='%an <%ae> / %cn <%ce>' <base>..HEAD`.
 
 Documentation of a product's AI feature stays. Rewrite only the sentences that disclose the authoring workflow.
 

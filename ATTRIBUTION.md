@@ -17,9 +17,11 @@ revision when replacing a package.
 
 ## Local adaptations
 
-`show-me` keeps its visual selection and examples in `references/visual-selection.md`, shared directly with pr-description. This local split fixes the user-only invocation dependency. It isolates temporary HTML artifacts under `.scratch/show-me/` to protect repository hygiene, supports platform openers (`open` on macOS, `xdg-open` on Linux, `start` on Windows), and integrates with `archify` for formal architecture diagrams. One English Mermaid warning: a raw Mermaid fence does not render in the operator's terminal CLI. Formal architecture diagrams follow `../archify/SKILL.md`. Do not restore a second Mermaid ban or the Portuguese "NUNCA emita blocos mermaid" line.
+Overlay policy: keep each vendored skill's SKILL.md structure, prefer description-only or side-file overlays, and reapply them after each upstream sync.
 
-`pr-description` adapts Matt Pocock's `pr` body/evidence pattern into draft and publish modes with `gh-axi` create/edit, idempotent head lookup, GitHub-only `--attach` media, and an execution/capture/upload failure taxonomy. It reads the shared `show-me/references/visual-selection.md` for visuals without invoking the user-only skill. See `skills/pr-description/CREDITS.md`. Source notices stay in the skill package and must not appear as PR/commit authorship footers.
+`show-me` keeps its visual selection and examples in `references/visual-selection.md`, shared directly with pr-description. This local split fixes the user-only invocation dependency. It isolates temporary HTML artifacts under `.scratch/show-me/` to protect repository hygiene, supports platform openers (`open` on macOS, `xdg-open` on Linux, `start` on Windows), and integrates with `archify` for formal architecture diagrams. One English Mermaid warning: a raw Mermaid fence does not render in a terminal CLI. Formal architecture diagrams follow `../archify/SKILL.md`. Do not restore a second Mermaid ban or the Portuguese "NUNCA emita blocos mermaid" line.
+
+`pr-description` builds draft and publish modes on Matt Pocock's `pr` body and evidence pattern, and reads the shared `show-me/references/visual-selection.md` for visuals. Lineage and local additions are in `skills/pr-description/CREDITS.md`, which ships with the skill and never becomes a PR or commit footer.
 
 `grilling` uses each agent's native question interface instead of waiting for
 prose replies, and adds a repo-only close step that writes settled terms into
@@ -68,21 +70,9 @@ pr-loop, validate-agent-config, setup, board, clean-crap, skill-eval,
 prune-agent-config, review-lesson, goal-brief. `pr-description` is original
 orchestration with attributed upstream body/evidence lineage (table above).
 
-Known exception: `unslop` (EN) is absent from this repo because the local version
-derives from unlicensed text (pstack/unslop, cursor/plugins).
+An English `unslop` is not published here: its source text (pstack/unslop,
+cursor/plugins) carries no license. English prose uses `humanizer`.
 
 `archify` does not vendor rendered example HTML under `examples/*.html`; regenerate with `node bin/archify.mjs examples` (gitignored). The built-in update check still points at upstream; refresh this vendor copy through the sync process rather than installing upstream over local overlays.
 
 `humanizer` keeps `SKILL.md`, `LICENSE`, and `agents/openai.yaml` only; upstream packaging (nested `.github/`, `.claude-plugin/`, README, AGENTS.md, validate script) is not vendored.
-
-## Follow-ups (upstream / next sync)
-
-P2 structural splits. Do not apply them locally; they stay with upstream or
-the next vendor sync. Overlay policy: keep each vendored skill's SKILL.md
-structure; prefer description-only or side-file overlays, and reapply them
-after sync.
-
-- graphify: move the pipeline body from SKILL.md into `references/pipeline.md`
-- humanizer: move Before/After examples into `references/patterns.md`
-- archify: split `references/delivery-contract.md` and
-  `references/authoring-contract.md`

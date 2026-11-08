@@ -10,12 +10,12 @@ Deliver one backlog item per iteration. Subagents run sequentially (implement �
 ## Invariants for each iteration
 
 1. Merging requires authorization. Requesting the loop authorizes work through opening a PR. Each merge requires authorization in the conversation unless the operator approved the entire batch beforehand (for example "merge everything").
-2. Author and committer are always the human operator (`git config user.name` / `user.email`). Never set `--author` or `GIT_AUTHOR_*` / `GIT_COMMITTER_*`. `../publication-hygiene/SKILL.md` applies the provenance rules at publication.
+2. Commits use the operator's `git config` identity. `../publication-hygiene/SKILL.md` checks authorship and provenance before publication.
 3. Tests and typecheck must pass before each commit. Discover the commands in step 0. If a package has no tests, the implementer adds them following the repo's conventions.
-4. Worktrees stay on disk at `~/.cache/worktrees` (not `/tmp`). A worktree can be resumed across sessions; its branch must be on origin before the iteration is finished. Resume with `git worktree add -b <branch> ~/.cache/worktrees/<slug> origin/<branch>`, or start from `origin/main` when no remote branch exists. Some linters skip that path: Biome with `!**/.cache` processes no files, so `pnpm run lint` and a husky pre-push hook fail. When step 0 finds the lint processing no files, recreate the worktree at `~/worktrees/<slug>` and use it for the whole iteration.
+4. Worktrees live in a persistent directory outside the repository, `~/.cache/worktrees/<slug>` by default, never in `/tmp`. A worktree can be resumed across sessions; its branch must be on origin before the iteration is finished. Resume with `git worktree add -b <branch> ~/.cache/worktrees/<slug> origin/<branch>`, or start from `origin/main` when no remote branch exists. Some linters skip that path: Biome with `!**/.cache` processes no files, so `pnpm run lint` and a husky pre-push hook fail. When step 0 finds the lint processing no files, recreate the worktree at `~/worktrees/<slug>` and use it for the whole iteration.
 5. Use `gh-axi` for GitHub. Read TOON output without piping it to jq.
 6. Follow the target project's language conventions for commits, PRs, docs, comments, and UI strings. Conversation uses the user's language. For PT-BR prose, apply `../unslop-br/SKILL.md`. For English prose, apply `../humanizer/SKILL.md`. PR bodies follow `../pr-description/SKILL.md`. Do not apply Portuguese vocabulary rules to other languages.
-7. For checks through rtk, use `pnpm -C <pkg> <script>`. rtk does not yet forward `--filter` to `tsc`; `pnpm --filter <pkg> <script>` can run the compiler at the monorepo root, print help, and exit 1 as a false typecheck failure. A subagent interrupted by a usage limit or timeout may leave completed work uncommitted: inspect `git status` and `git diff` before starting over.
+7. When commands go through rtk, run package scripts with `pnpm -C <pkg> <script>`: rtk does not yet forward `--filter` to `tsc`, so `pnpm --filter <pkg> <script>` can run the compiler at the monorepo root, print help, and exit 1 as a false typecheck failure. A subagent interrupted by a usage limit or timeout may leave completed work uncommitted: inspect `git status` and `git diff` before starting over.
 
 ## When subagents are unavailable
 
@@ -55,6 +55,8 @@ REQUIRED CHECKS before committing: [test and typecheck commands]. Fix failures.
 COMMIT: one local commit; repo log language and style; git config author; never --author.
 FINAL REPORT: changes by file, test counts, commit hash, omitted work with reasons.
 ```
+
+Done when the worktree has the local commit, the required checks pass, and the scope is delivered.
 
 ## Step 2, clean-crap gate (main agent)
 
@@ -170,6 +172,8 @@ COMMIT: [repo log's language and style; git config author]
 FINAL REPORT: changes by file, test counts, commit hash, unapplied items with reasons.
 ```
 
+Done when the correction commit exists, the required checks pass, and every finding is applied or reported as unapplied with a reason.
+
 ## Step 4a, re-verify product behavior (main agent)
 
 If the correction changed code, re-run the clean-crap gate from step 2 and require exit 0 (or an explicit operator skip) before 4b. Re-run the step 0 scenarios affected by the correction commit. Refresh or replace **after** captures when UI evidence changed; keep the original **before**. If nothing user-facing changed, record that product re-verify was skipped and why. If product verification fails, return to a focused correction. Do not advance to 4b or 5 while the scenario failed or the cleaner is red.
@@ -187,7 +191,7 @@ Follow `../pr-description/SKILL.md` in **draft** mode again so `<worktree>/.scra
 5. If main already contains the feature tree from an earlier squash of the same branch, remove the duplicate history with `git rebase --onto origin/main <old-commit> <branch>`. Confirm identical trees with `git rev-parse <new>^{tree} <old>^{tree}`, then run `git push --force-with-lease`. Force push only your own unmerged branch after checking tree equality. Refresh the PR body via `pr-description` publish if the push rewrote history.
 6. With merge authorization, run `gh-axi pr merge <N> --squash --delete-branch --subject "... (#N)" --body "..."`. Set the subject and body explicitly. Run publication-hygiene on that subject/body before merging.
 7. Clean up with `git pull --ff-only` in the main repo, `git worktree remove --force <worktree>`, and `git branch -D <branch>`. Delete any remaining temp Evidence media that was already confirmed on GitHub.
-8. If main deploys automatically through CI, check the merge run with `gh-axi run list`. Record migrations and secrets not covered by CI as follow-up work.
+8. If main runs CI, wait for the merge run (`gh-axi run list`) and require it to pass before step 6. On failure, stop and report the run to the operator. Record migrations and secrets not covered by CI as follow-up work.
 
 ## Step 6, next item
 
@@ -197,15 +201,3 @@ Follow `../pr-description/SKILL.md` in **draft** mode again so `<worktree>/.scra
 - Return to step 0 for the next item.
 
 Stop when the list ends, the operator requests a pause, or an item requires an external action you cannot perform (setting a secret, testing on a physical device, or settling an open product decision). Report the current state and follow-ups.
-
-## Check before advancing
-
-- Step 1 → 2: worktree has a local commit, tests pass, and the scope is delivered.
-- Step 2 → 2a: the report covers the iteration diff with numeric CRAP and exit 0 (after at most two correction rounds), or N/A for no eligible sources or an explicit operator skip is recorded.
-- Step 2a → 2b: product verification succeeded (or N/A was recorded); a failed scenario was fixed before drafting.
-- Step 2b → 3: `<worktree>/.scratch/pr-description/body.md` exists and reflects observed checks.
-- Step 3 → 4: review conclusions have become numbered instructions with exact locations, or no changes are needed and you skip to step 4a.
-- Step 4 → 4a: tests pass again and the commit has been checked for attribution.
-- Step 4a → 4b: if code changed, clean-crap exited 0 (or the operator skipped it); product verification succeeded or an explicit N/A/skip was recorded; a failed scenario was not left unfixed.
-- Step 4b → 5: the draft body matches the final diff and latest Evidence; do not publish while verification or the cleaner is failed.
-- Step 5 → 6: PR created or updated via `pr-description` publish, merged with authorization, local main updated, worktree and branch removed, and main CI passing when present.
