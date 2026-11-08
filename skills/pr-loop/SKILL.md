@@ -15,7 +15,7 @@ Deliver one backlog item per iteration. Subagents run sequentially (implement â†
 4. Worktrees live in a persistent directory outside the repository, `~/.cache/worktrees/<slug>` by default, never in `/tmp`. A worktree can be resumed across sessions; its branch must be on origin before the iteration is finished. Resume with `git worktree add -b <branch> ~/.cache/worktrees/<slug> origin/<branch>`, or start from `origin/main` when no remote branch exists. Some linters skip that path: Biome with `!**/.cache` processes no files, so `pnpm run lint` and a husky pre-push hook fail. When step 0 finds the lint processing no files, recreate the worktree at `~/worktrees/<slug>` and use it for the whole iteration.
 5. Use `gh-axi` for GitHub. Read TOON output without piping it to jq.
 6. Follow the target project's language conventions for commits, PRs, docs, comments, and UI strings. Conversation uses the user's language. For PT-BR prose, apply `../unslop-br/SKILL.md`. For English prose, apply `../humanizer/SKILL.md`. PR bodies follow `../pr-description/SKILL.md`. Do not apply Portuguese vocabulary rules to other languages.
-7. A subagent interrupted by a usage limit or timeout may leave completed work uncommitted: inspect `git status` and `git diff` before starting over.
+7. When commands go through rtk, run package scripts with `pnpm -C <pkg> <script>`: rtk does not yet forward `--filter` to `tsc`, so `pnpm --filter <pkg> <script>` can run the compiler at the monorepo root, print help, and exit 1 as a false typecheck failure. A subagent interrupted by a usage limit or timeout may leave completed work uncommitted: inspect `git status` and `git diff` before starting over.
 
 ## When subagents are unavailable
 
