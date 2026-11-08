@@ -7,7 +7,7 @@ revision when replacing a package.
 
 | Skill | Source | Vendored revision | License |
 |---|---|---|---|
-| archify | [tt-a1i/archify](https://github.com/tt-a1i/archify) | `0e4949f910a8` (2026-09-28) | MIT |
+| archify | [tt-a1i/archify](https://github.com/tt-a1i/archify) | v3.2.0 (`208acba8d412`, 2026-10-18) | MIT |
 | graphify | [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify) | v0.9.104 | Apache-2.0 |
 | grilling, teach, to-spec, to-tickets, research | [mattpocock/skills](https://github.com/mattpocock/skills) | `4ae2317ddb22` (2026-10-31) | MIT |
 | writing-for-agents | [mattpocock/skills](https://github.com/mattpocock/skills) `skills/productivity/writing-for-agents` | `321658273cb1` (2026-08-19) | MIT © 2026 Matt Pocock |
@@ -81,6 +81,6 @@ orchestration with attributed upstream body/evidence lineage (table above).
 An English `unslop` is not published here: its source text (pstack/unslop,
 cursor/plugins) carries no license. English prose uses `humanizer`.
 
-`archify` does not vendor rendered example HTML under `examples/*.html`; regenerate with `node bin/archify.mjs examples` (gitignored). The built-in update check still points at upstream; refresh this vendor copy through the sync process rather than installing upstream over local overlays.
+`archify` does not vendor rendered example HTML under `examples/*.html`; regenerate with `node bin/archify.mjs examples` (gitignored). It also omits `package-lock.json`, `scripts/generate-brand-marks.mjs`, `scripts/generate-validators.mjs`, and the `scripts` and `devDependencies` blocks of `package.json`, which only rebuild generated files; every other file matches the tag byte for byte. Sync from a tagged release: upstream `main` moved to Apache-2.0 at `9c306ee8` (2026-10-25) while v3.2.0 is still MIT, so a sync past it changes the license row and brings `NOTICE` and `LICENSE-MIT`. The built-in update check still points at upstream; refresh this vendor copy through the sync process rather than installing upstream over local overlays.
 
 `humanizer` keeps `SKILL.md`, `LICENSE`, and `agents/openai.yaml` only; upstream packaging (nested `.github/`, `.claude-plugin/`, README, AGENTS.md, validate script) is not vendored.
