@@ -1,6 +1,6 @@
 ---
 type: regex
 target: { source: file, path: brief.md }
-pattern: 'AssertionError|FAILED|fails?\b|red\b'
+pattern: '\b(?:AssertionError|FAILED|fails?|red)\b'
 flags: i
 ---

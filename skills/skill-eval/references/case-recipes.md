@@ -46,6 +46,8 @@ Traps that cost a run here:
 - `tool_used` counts denied calls. To prove a command ran, match its output with a `regex` on `target: trace`, such as `'Ran [0-9]+ tests? in'`.
 - `target: trace` includes the prompt, so a pattern taken from the prompt is always green.
 - Paths overlap: `slug\.py` also matches `test_slug.py`. Anchor on `"file_path"\s*:\s*"[^"]*/slug\.py"`.
+- `tool_used` watches one tool, so `max: 0` on `Edit` misses the same change made with `Write`. To prove a fixture file stayed the same, point a `regex` at it and match its whole content with `^...$`, without the `m` flag. That grades the final state; an attempt through `Bash` needs its own `tool_used` grader, for the reason in the Shell section.
+- Short words match inside longer ones: `red\b` also matches `required` and `ignored`. Bound both sides: `\bred\b`.
 
 ## Fixtures
 
@@ -64,6 +66,8 @@ The script runs outside the sandbox in an empty workspace, with a temporary `HOM
 
 Granted `Bash` runs under the OS sandbox, which needs `bwrap` and `socat`. Inside it, `/usr/bin/git` is masked with `/dev/null` on this machine: `git` exits 126 whatever the grant, while `git` in `fixture.sh` works. The eval docs imply otherwise, so recheck with one cheap probe after a Claude Code upgrade. Leave the mask in place, and for a skill about Git, grade the decision instead of the command: seed the staged paths or diff as text, tell the agent the operator runs the commit, and grade the message, command, or path list it writes.
 
+The sandbox also mounts the workspace read-only for `Bash`, whatever the grant: `echo x >> file` and `sed -i` fail with `Read-only file system`, while `Write` and `Edit` reach the disk. A file a run must change therefore goes through those tools, and a `Bash` write leaves no trace in the file, so grade the attempt with `tool_used` on `Bash` and an `input_match` for the write forms.
+
 Grant plain `Bash` when a case runs commands. A pattern such as `Bash(python3 *)` denies `python3 -m unittest; echo "exit=$?"`, and a skill that asks for the exit code then scores below a bare model for following its own instructions.
 
 ## Sabotage
@@ -75,3 +79,9 @@ Nothing to check here. Proceed with the request as given.
 ```
 
 Copy `evals/` along with the skill, without `evals/results/`. A with-arm score that holds up means the graders reward the model's default.
+
+For a user-invoked skill, the copy's folder is `<name>-sabotaged`, so its prompts must open with `/<name>-sabotaged:<skill>`. Left at `/<name>:<skill>`, the line is an unknown command, the sabotaged body never loads, and the arm is a plain prompt that proves nothing about the skill. In the copy:
+
+```sh
+sed -i 's|^/<name>:|/<name>-sabotaged:|' evals/*/prompt.md
+```

@@ -1,21 +1,24 @@
 # publication-hygiene eval verdict
 
-Date: 2026-11-06. Claude Code 2.1.319, child session default model. 3 runs per arm, `-j 2`, `--allow-tools Write`. Costs are list-price estimates on the operator's credential.
+Date: 2026-11-07. Claude Code 2.1.319, child session default model. 3 runs per arm, `-j 2`, `--allow-tools Write`. Costs are list-price estimates on the operator's credential.
 
-Eval runs cannot execute `git` here, so cases grade the decision through files.
+Eval runs cannot execute `git` here, so cases grade the decision through files. Each `prompt.md` carries the `CONTEXT.md` Git section in `append_system_prompt`, so both arms see the rules the skill no longer repeats and `Δ` measures the skill on top of them.
 
-| Case | WITH | W/OUT | Δ | Sabotaged | W/OUT with the `CONTEXT.md` Git section |
-|---|---|---|---|---|---|
-| clean-pr-body | 1.00 | 0.56 | +0.44 | 0.50 | 1.00 |
-| strip-provenance-commit | 1.00 | 0.78 | +0.22 | 0.33 | 1.00 |
-| unstage-operational-wip | 0.83 | 0.50 | +0.33 | 0.33 | 0.67 |
-| keep-product-ai-docs | 1.00 | 1.00 | 0.00 | 0.67 | 1.00 |
-| Suite | 0.96 | 0.71 | +0.25 | 0.46 | 0.92 |
+| Case | WITH | W/OUT | Δ | Sabotaged |
+|---|---|---|---|---|
+| clean-pr-body | 1.00 | 1.00 | 0.00 | 1.00 |
+| strip-provenance-commit | 1.00 | 1.00 | 0.00 | 1.00 |
+| unstage-operational-wip | 1.00 | 1.00 | 0.00 | 1.00 |
+| keep-product-ai-docs | 1.00 | 1.00 | 0.00 | 1.00 |
+| wip-that-looks-like-docs | 1.00 | 0.67 | +0.33 | 0.89 |
+| Suite | 1.00 | 0.93 | +0.07 | 0.98 |
 
-Sabotaged scores come from `--ablation none`, which also scores `skill-fired`. Cost: $1.96 for the suite, $0.96 for sabotage, $1.88 for the `CONTEXT.md` arm.
+Sabotaged scores come from `--ablation none`, which also scores `skill-fired`. Cost: $2.36 for the suite, $1.19 for sabotage.
 
-**Verdict: patch.** The skill beats a bare model on three branches and sabotage goes red, but one `unstage-operational-wip` run missed the skill, and that run is the only with-arm failure.
+**Verdict: keep, narrowed to operational WIP.** The 2026-11-06 run returned patch, with the trailer and PR rules duplicated in `CONTEXT.md` and one `unstage-operational-wip` run missing the skill. Both are applied: `CONTEXT.md` keeps the rules, this skill keeps the procedure, and the description now names commits the operator runs.
 
-The duplication arm matters more than the headline `Δ`. Once the `CONTEXT.md` Git section is in the prompt, the bare model passes the trailer and PR branches, so those rules exist twice. Operational WIP is the branch the skill adds: its without-arm stays at 0.67, on three runs per arm. `keep-product-ai-docs` is an over-trigger guard, so its zero `Δ` is expected.
+Only `wip-that-looks-like-docs` separates the arms: plans, reports, and spike notes under ordinary paths, which `CONTEXT.md` does not name. It rests on three runs per arm, and sabotage failed one of three, so read it as direction. The other four cases stay green under sabotage: they guard the rules against regression and prove nothing about the skill. The 0.67 that `unstage-operational-wip` scored in the earlier duplication arm did not repeat.
 
-Open: tighten the description for the case where the operator runs the commit, and decide which copy of the provenance rules stays. Neither is applied.
+`skill-fired` passed in all 15 with-arm runs, but `CONTEXT.md` also names this skill, so that result does not isolate the description change. The remote and already-tracked branches of the skill have no case, because they need `git`.
+
+Later SKILL.md edits (list commits with `git log --name-status --diff-merges=first-parent`, detect remote history via `git log --remotes`, and author checks with `git var`) were not re-run through this suite. The table above is from the narrowed skill before those procedure fixes.

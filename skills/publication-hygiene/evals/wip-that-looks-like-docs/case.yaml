@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: wip-that-looks-like-docs
+description: Plans, reports, spike notes, coverage, and local agent config sit in ordinary-looking paths the CONTEXT.md rule does not name.
+tags: [commit]
+context:
+  scaffold_script: fixture.sh
