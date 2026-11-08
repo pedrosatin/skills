@@ -9,6 +9,28 @@ const args = process.argv.slice(2);
 const flags = new Set(args.filter(a => a.startsWith('--')));
 const positional = args.filter(a => !a.startsWith('--'));
 
+const USAGE = `Usage: node scripts/generate-hub.mjs [<project-root>] [--docs] [--open] [--fixture]
+
+Generate the Project Hub from <project-root>/.scratch/ (default: current directory).
+
+Options:
+  --docs      write docs/index.html instead of .scratch/index.html
+  --open      open the generated hub in the default browser
+  --fixture   build fixtures/hub-fixture.html from the skill's fixtures (maintainers)
+  --help, -h  show this help`;
+
+if (flags.has('--help') || args.includes('-h')) {
+  console.log(USAGE);
+  process.exit(0);
+}
+const unknown = [...flags].filter(f => !['--docs', '--open', '--fixture'].includes(f))
+  .concat(positional.filter(a => a.startsWith('-')));
+if (unknown.length || positional.length > 1) {
+  console.error(unknown.length ? `Unknown option: ${unknown.join(' ')}` : 'Expected at most one project root');
+  console.error(USAGE);
+  process.exit(2);
+}
+
 const useFixture = flags.has('--fixture');
 const skillDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fixtureDir = path.join(skillDir, 'fixtures', 'minimal-scratch');

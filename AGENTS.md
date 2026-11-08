@@ -6,6 +6,9 @@ Write skill instructions, descriptions, internal prompts, supporting documentati
 
 Use the user's language for conversation and follow each target project's language conventions for generated prose. English instructions do not require English output. Keep interface localization separate from instruction translation.
 
+### Tests
+Run `node --test tests/`, and `npm test --prefix skills/clean-crap` after `npm ci --prefix skills/clean-crap`. `node skills/setup/scripts/generate-hub.mjs --fixture` smokes the Project Hub generator.
+
 ### Issue tracker
 Track issues locally in Markdown files under `.scratch/<feature>/` on the primary worktree.
 The interactive dashboard is at `.scratch/index.html`.

@@ -1,6 +1,5 @@
 .scratch/
 .worktrees/
-/docs/adr/
 node_modules/
 *.log
 .DS_Store
