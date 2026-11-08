@@ -120,11 +120,12 @@ if [ "$dest" = "$default" ]; then
     prune "$root" "$default/*" "../../.agents/skills/*"
   done
 
-  # Collect available harnesses (existing real directories)
+  # Collect installed harnesses: the skill root is a real directory, or the
+  # harness config directory exists and the skill root can be created in it.
   available_entries=()
   for entry in "${KNOWN_HARNESSES[@]}"; do
     dir="${entry%%:*}"
-    if [ -d "$dir" ] && [ ! -L "$dir" ]; then
+    if [ ! -L "$dir" ] && { [ -d "$dir" ] || [ -d "$(dirname "$dir")" ]; }; then
       available_entries+=("$entry")
     fi
   done

@@ -18,11 +18,13 @@ lints the checkout's `skills/` catalog as well as the installed skill roots.
 ## Machine settings
 
 Without configuration, the script checks the skill roots, SKILL.md
-conventions, and this repository. Layout rules that only hold on one machine
+conventions, and this repository, found through the skill's symlink (set
+`SKILLS_REPO` when the skill was installed as a copy). Layout rules that only hold on one machine
 come from an optional bash file, sourced from
 `${XDG_CONFIG_HOME:-~/.config}/validate-agent-config/config.sh` (override the
-path with `VALIDATE_AGENT_CONFIG`). The variables and their meaning are listed
-at the top of `scripts/validate.sh`. Setting `CONTEXT` turns on the
+path with `VALIDATE_AGENT_CONFIG`). Values in that file win over the
+environment. The variables and their meaning are listed at the top of
+`scripts/validate.sh`. Setting `CONTEXT` turns on the
 entry-point checks: each harness entry file must link to that shared rules
 file, and each `CLAUDE.md` in `CLAUDE_DIRS` must be a real file whose `@`
 imports resolve.

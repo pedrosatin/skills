@@ -33,7 +33,7 @@ gh-axi api /repos/{owner}/{repo}/pulls/<number>
 ### 3. Cross-PR conflict detection
 
 Before reviewing individually, scan all diffs together for:
-- **Duplicate changes**: two PRs touching the same lines with the same intent → flag the older one as superseded
+- **Duplicate changes**: two PRs touching the same lines with the same intent → flag the older one as superseded, naming the PR that supersedes it
 - **Conflicting changes**: two PRs modifying the same file in incompatible ways → flag both, explain which to keep
 - **Sequential dependencies**: PR A must merge before PR B can be valid (e.g., B adds tests for a function A removes)
 

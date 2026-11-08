@@ -28,6 +28,8 @@ git clone https://github.com/pedrosatin/skills.git
 (Claude Code, Codex, Gemini) and prompts you to link them as well.
 Use `./link.sh --all` to link all detected harnesses without prompting, or
 `./link.sh -y` for non-interactive default mode.
+A harness counts as installed when its config directory exists (`~/.claude`,
+`~/.codex`, `~/.gemini`); the skill root is created when missing.
 It skips existing directories and links pointing outside the repo, with a
 warning. The script is idempotent and removes broken links pointing to the repo
 or `~/.agents/skills`. Run it again after each `git pull`.
@@ -37,10 +39,12 @@ from their respective skill roots via the created symlinks.
 
 ## Requirements
 
+- Bash for `link.sh` and `validate-agent-config`.
 - Node.js 20 or later for the bundled scripts (`setup`, `board`, `clean-crap`,
   `archify`). `clean-crap` also needs `npm ci --prefix skills/clean-crap` once.
 - [`gh-axi`](https://github.com/kunchenguid/gh-axi) for the GitHub skills
-  (`babysit-prs`, `pr-description`, `pr-loop`).
+  (`babysit-prs`, `pr-description`, `pr-loop`); `pr-description` attachments
+  need `gh` 2.99.0 or later.
 - Claude Code for `skill-eval`, which runs `claude plugin eval`.
 - Optional: Graphify (`uv tool install graphifyy`) for `graphify` and the
   graph links in the Project Hub.
