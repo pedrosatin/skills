@@ -1,6 +1,6 @@
 ---
 name: validate-agent-config
-description: "Validate the machine's agent configuration: instruction files (CONTEXT.md, AGENTS.md, CLAUDE.md, GEMINI.md), symlinks, @ imports, skill frontmatter, and referenced binaries. Use when asked to validate, audit, or check the health of skills, rules, or harness integration."
+description: "Validate the machine's agent configuration: instruction files (AGENTS.md, CLAUDE.md, GEMINI.md, a shared rules file), symlinks, @ imports, skill frontmatter, and referenced binaries. Use when asked to validate, audit, or check the health of skills, rules, or harness integration."
 ---
 
 # Validate agent configuration
@@ -15,15 +15,25 @@ bash "$HOME/.agents/skills/validate-agent-config/scripts/validate.sh"
 From a clone of this repository, `bash skills/validate-agent-config/scripts/validate.sh`
 lints the checkout's `skills/` catalog as well as the installed skill roots.
 
+## Machine settings
+
+Without configuration, the script checks the skill roots, SKILL.md
+conventions, and this repository. Layout rules that only hold on one machine
+come from an optional bash file, sourced from
+`${XDG_CONFIG_HOME:-~/.config}/validate-agent-config/config.sh` (override the
+path with `VALIDATE_AGENT_CONFIG`). The variables and their meaning are listed
+at the top of `scripts/validate.sh`. Setting `CONTEXT` turns on the
+entry-point checks: each harness entry file must link to that shared rules
+file, and each `CLAUDE.md` in `CLAUDE_DIRS` must be a real file whose `@`
+imports resolve.
+
 ## Interpreting results
 
 - `ERROR` requires a fix before treating the machine as healthy: broken
   symlinks, missing paths, missing SKILL.md files, or `name:` not matching
   the directory. Exit 1.
-- `WARNING` is a deviation that may have a reason: a missing optional tool, a
+- `WARNING` is a deviation that may have a reason: a missing expected tool, a
   skill without trigger phrases, or a SKILL.md over 350 lines (the threshold
   applies even when `references/` or `scripts/` exist). Exit 0.
 - After fixes, rerun until the result is `CLEAN`, or `CLEAN WITH WARNINGS`
   you can justify.
-- Layout: general rules live in `~/.agents/CONTEXT.md`; skills live at
-  `~/.agents/skills/<name>` with harness directories as symlinks.
