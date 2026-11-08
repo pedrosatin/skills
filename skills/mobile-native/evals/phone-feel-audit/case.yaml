@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: phone-feel-audit
+description: A multi-file app with no named symptom gets every mobile fix, each with the right variant.
+tags: [fix, audit]
+context:
+  scaffold_script: fixture.sh

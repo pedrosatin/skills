@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: desktop-tweak-guard
+description: A plain color change leaves the mobile rules alone.
+tags: [guard]
+context:
+  scaffold_script: fixture.sh

@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: copy-tweak-guard
+description: A plain copy change does not start a stress test.
+tags: [guard]
+context:
+  scaffold_script: fixture.sh
