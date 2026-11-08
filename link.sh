@@ -31,7 +31,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-repo="$(cd "$(dirname "$0")" && pwd)/skills"
+root="$(cd "$(dirname "$0")" && pwd)"
+# Installed skills must survive worktree removal: link only from the primary checkout.
+if [ -f "$root/.git" ] && grep -q '^gitdir: .*/worktrees/' "$root/.git"; then
+  primary="$(git -C "$root" worktree list --porcelain | awk '/^worktree / { print $2; exit }')"
+  echo "link.sh: $root is a linked git worktree; run it from the primary checkout ($primary)." >&2
+  exit 1
+fi
+repo="$root/skills"
 default="$HOME/.agents/skills"
 dest="${AGENTS_SKILLS_DIR:-$default}"
 mkdir -p "$dest"

@@ -57,6 +57,19 @@ matches_any() {
 }
 not_a_skill() { matches_any "$1" ${IGNORE_ENTRIES[@]+"${IGNORE_ENTRIES[@]}"}; }
 dual_root() { matches_any "$1" ${DUAL_ROOT_SKILLS[@]+"${DUAL_ROOT_SKILLS[@]}"}; }
+# linked_worktree <path>: print the linked git worktree that contains path, if any
+linked_worktree() {
+  local d="$1"
+  while [ -n "$d" ] && [ "$d" != / ]; do
+    if [ -f "$d/.git" ]; then
+      grep -q '^gitdir: .*/worktrees/' "$d/.git" && { printf '%s\n' "$d"; return 0; }
+      return 1
+    fi
+    [ -d "$d/.git" ] && return 1
+    d="$(dirname "$d")"
+  done
+  return 1
+}
 # same_path <a> <b>: both resolve, to the same file (fails closed without readlink -f)
 same_path() { local a b; a="$(resolve "$1")"; b="$(resolve "$2")"; [ -n "$a" ] && [ "$a" = "$b" ]; }
 
@@ -158,7 +171,10 @@ for root in "$AGENTS_SKILLS" "$CLAUDE_SKILLS"; do
     name="$(basename "$e")"
     not_a_skill "$name" && continue
     if [ -L "$e" ]; then
-      if [ -e "$e" ]; then ok; else err "broken symlink: $e -> $(readlink "$e")"; fi
+      if [ ! -e "$e" ]; then err "broken symlink: $e -> $(readlink "$e")"
+      elif wt="$(linked_worktree "$(resolve "$e")")"; then
+        err "$e resolves into the git worktree $wt; link it from a primary checkout"
+      else ok; fi
       continue
     fi
     [ -d "$e" ] || continue

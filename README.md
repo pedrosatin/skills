@@ -31,7 +31,9 @@ Use `./link.sh --all` to link all detected harnesses without prompting, or
 A harness counts as installed when its config directory exists (`~/.claude`,
 `~/.codex`, `~/.gemini`); the skill root is created when missing.
 It skips existing directories and links pointing outside the repo, with a
-warning. The script is idempotent and removes broken links pointing to the repo
+warning. Run it from the primary checkout: it refuses to run from a linked git
+worktree, because installed skills would break when the worktree is removed.
+The script is idempotent and removes broken links pointing to the repo
 or `~/.agents/skills`. Run it again after each `git pull`.
 
 OpenCode reads `~/.agents/skills` directly. Claude Code, Codex, and Gemini read

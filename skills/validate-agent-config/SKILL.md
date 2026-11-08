@@ -32,8 +32,8 @@ imports resolve.
 ## Interpreting results
 
 - `ERROR` requires a fix before treating the machine as healthy: broken
-  symlinks, missing paths, missing SKILL.md files, or `name:` not matching
-  the directory. Exit 1.
+  symlinks, skill links that resolve into a linked git worktree, missing
+  paths, missing SKILL.md files, or `name:` not matching the directory. Exit 1.
 - `WARNING` is a deviation that may have a reason: a missing expected tool, a
   skill without trigger phrases, or a SKILL.md over 350 lines (the threshold
   applies even when `references/` or `scripts/` exist). Exit 0.
