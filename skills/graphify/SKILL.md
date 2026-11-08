@@ -280,6 +280,7 @@ Path('graphify-out/.graphify_uncached.txt').write_text('\n'.join(uncached), enco
 # interrupted run, and Step B3 merges every .graphify_chunk_*.json it finds.
 for stale in Path('graphify-out').glob('.graphify_chunk_*.json'):
     stale.unlink()
+Path('graphify-out/.graphify_expected_chunks').unlink(missing_ok=True)
 print(f'Cache: {len(all_files)-len(uncached)} files hit, {len(uncached)} files need extraction')
 "
 ```
@@ -308,9 +309,10 @@ All three in one message. Not three separate messages.
 
 Each subagent receives this exact prompt (substitute FILE_LIST, CHUNK_NUM, TOTAL_CHUNKS, DEEP_MODE, and CHUNK_PATH).
 
-CHUNK_PATH must be an **absolute** path — derive it before dispatching:
+CHUNK_PATH must be an **absolute** path — derive it before dispatching, and substitute TOTAL_CHUNKS so Step B3 can count chunks missing from disk:
 ```bash
 PROJECT_ROOT=$(pwd)  # cwd — where Part C globs graphify-out/ (NOT .graphify_root/scan dir, #1392)
+printf '%s\n' TOTAL_CHUNKS > graphify-out/.graphify_expected_chunks
 # Then for chunk N: CHUNK_PATH="${PROJECT_ROOT}/graphify-out/.graphify_chunk_0N.json"
 ```
 
@@ -379,12 +381,18 @@ from pathlib import Path
 
 Path('graphify-out/.graphify_semantic_new.json').unlink(missing_ok=True)
 chunks = sorted(glob.glob('graphify-out/.graphify_chunk_*.json'))
+expected_file = Path('graphify-out/.graphify_expected_chunks')
+expected = max(len(chunks), int(expected_file.read_text(encoding=\"utf-8\"))) if expected_file.exists() else len(chunks)
+if expected > len(chunks):
+    print(f'Warning: {expected - len(chunks)} dispatched chunk(s) missing from disk')
 valid = []
 for c in chunks:
     try:
         d = json.loads(Path(c).read_text(encoding=\"utf-8\"))
         if not isinstance(d, dict) or not isinstance(d.get('nodes'), list) or not isinstance(d.get('edges'), list):
             raise ValueError('nodes and edges must be arrays')
+        if not all(isinstance(n, dict) and 'id' in n for n in d['nodes']):
+            raise ValueError('every node needs an id')
         if not isinstance(d.get('hyperedges', []), list):
             raise ValueError('hyperedges must be an array')
         for key in ('input_tokens', 'output_tokens'):
@@ -393,8 +401,8 @@ for c in chunks:
         valid.append(d)
     except (OSError, ValueError) as exc:
         print(f'Warning: skipping chunk {c}: {exc}')
-if len(chunks) - len(valid) > len(chunks) / 2:
-    raise SystemExit('More than half the chunks failed; rerun extraction')
+if expected - len(valid) > expected / 2:
+    raise SystemExit('More than half the chunks failed or are missing; rerun extraction')
 all_nodes, all_edges, all_hyperedges = [], [], []
 total_in, total_out = 0, 0
 for d in valid:
@@ -407,7 +415,7 @@ Path('graphify-out/.graphify_semantic_new.json').write_text(json.dumps({
     'nodes': all_nodes, 'edges': all_edges, 'hyperedges': all_hyperedges,
     'input_tokens': total_in, 'output_tokens': total_out,
 }, indent=2, ensure_ascii=False), encoding=\"utf-8\")
-print(f'Merged {len(valid)}/{len(chunks)} chunks: {total_in:,} in / {total_out:,} out tokens')
+print(f'Merged {len(valid)}/{expected} chunks: {total_in:,} in / {total_out:,} out tokens')
 "
 ```
 
@@ -747,7 +755,7 @@ cost_path.write_text(json.dumps(cost, indent=2, ensure_ascii=False), encoding=\"
 print(f'This run: {input_tok:,} input tokens, {output_tok:,} output tokens')
 print(f'All time: {cost[\"total_input_tokens\"]:,} input, {cost[\"total_output_tokens\"]:,} output ({len(cost[\"runs\"])} runs)')
 "
-rm -f graphify-out/.graphify_detect.json graphify-out/.graphify_extract.json graphify-out/.graphify_ast.json graphify-out/.graphify_semantic.json graphify-out/.graphify_analysis.json graphify-out/.graphify_partial.txt
+rm -f graphify-out/.graphify_detect.json graphify-out/.graphify_extract.json graphify-out/.graphify_ast.json graphify-out/.graphify_semantic.json graphify-out/.graphify_analysis.json graphify-out/.graphify_partial.txt graphify-out/.graphify_expected_chunks
 find graphify-out -maxdepth 1 -name '.graphify_chunk_*.json' -delete 2>/dev/null
 rm -f graphify-out/.needs_update 2>/dev/null || true
 ```

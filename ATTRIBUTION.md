@@ -14,7 +14,7 @@ revision when replacing a package.
 | humanizer | [blader/humanizer](https://github.com/blader/humanizer) (see `skills/humanizer/LICENSE`) | v3.1.0 | MIT © 2025 Siqi Chen |
 | show-me | [humanlayer/skills](https://github.com/humanlayer/skills) | `bba9d13ab34f` (2026-09-12) | MIT © 2026 HumanLayer |
 | pr-description (adapted from `pr`) | [mattpocock/skills](https://github.com/mattpocock/skills) `pr` skill; visual kinds via local `show-me` / HumanLayer | `49dd158d1076` (2026-10-09) | MIT © 2026 Matt Pocock; show-me lineage MIT © 2026 HumanLayer |
-| setup, local tracker template only (`templates/issue-tracker.md`, adapted from `issue-tracker-local.md`) | [mattpocock/skills](https://github.com/mattpocock/skills) `skills/engineering/setup-matt-pocock-skills` | `321658273cb1` (2026-08-19) | MIT © 2026 Matt Pocock |
+| setup, templates only (`templates/issue-tracker.md` adapted from `setup-matt-pocock-skills/issue-tracker-local.md`, `templates/domain.md` from `domain-modeling`) | [mattpocock/skills](https://github.com/mattpocock/skills) `skills/engineering` | `321658273cb1` (2026-08-19) | MIT © 2026 Matt Pocock |
 
 ## Local adaptations
 
@@ -48,7 +48,7 @@ fails, ask the operator and wait before `uv tool install graphifyy` /
 the package: inspect `uv tool dir` for an already-installed interpreter; do
 not run `uv tool run --from graphifyy`. English question: "Graphify is not
 installed in this environment. Install it with 'uv tool install graphifyy'
-or 'pip install graphifyy'?" Keep the rest of the pipeline in SKILL.md. Step B3's merge validates each chunk, skips failures, and aborts when more than half fail; Step B3.5 skips chunks it cannot parse and leaves the report to the merge. Chunks stay at upstream's `graphify-out/.graphify_chunk_NN.json`, where B3.5 and the pre-dispatch cleanup look for them. Preserve that collector overlay. The description opens with "Use when exploring or asking questions".
+or 'pip install graphifyy'?" Keep the rest of the pipeline in SKILL.md. Step B2 records the dispatched count in `.graphify_expected_chunks`, which Step B0 clears. Step B3's merge validates each chunk, counts missing chunks against that total, skips failures, and aborts when more than half fail or are missing; Step B3.5 skips chunks it cannot parse and leaves the report to the merge. Chunks stay at upstream's `graphify-out/.graphify_chunk_NN.json`, where B3.5 and the pre-dispatch cleanup look for them. Preserve that collector overlay. The description opens with "Use when exploring or asking questions".
 
 `to-spec` adds a Verification section to the template and a closing step that suggests implementing in a new session. It also writes the spec to the primary worktree and refreshes the Project Hub. Reapply these after syncing upstream.
 
@@ -76,7 +76,7 @@ Original skills (MIT, this repo): unslop-br, publication-hygiene, babysit-prs,
 pr-loop, validate-agent-config, setup, board, clean-crap, skill-eval,
 prune-agent-config, review-lesson, goal-brief. `pr-description` is original
 orchestration with attributed upstream body/evidence lineage (table above).
-`setup` is original except for its local tracker template (table above).
+`setup` is original except for its tracker and domain templates (table above).
 
 An English `unslop` is not published here: its source text (pstack/unslop,
 cursor/plugins) carries no license. English prose uses `humanizer`.
