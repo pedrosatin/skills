@@ -52,27 +52,22 @@ Partial create failures matter: `pr create` can open the PR and still fail on an
 
 ## Body shape
 
-Default sections when the repo has no template (headings in the project language):
+Write the body as a cover note for the reviewer: changed behavior and its effect come before implementation detail, and no section lists files one by one. Default sections when the repo has no template (headings in the project language):
 
-1. **Summary** — problem and resulting behavior. Add a visual only when it beats a short paragraph (see Visuals). Docs/config-only PRs may stay prose-only.
+1. **Summary** — problem and resulting behavior, sized to the change. Add a visual only when it beats a short paragraph (see Visuals). Docs/config-only PRs may stay prose-only.
+
+   | Change | Summary carries |
+   |---|---|
+   | Small or obvious | One paragraph |
+   | Feature, bug fix, or refactor | Changed behavior and effect; root cause or a non-obvious approach when relevant |
+   | Contract or breaking change | The affected surface (API, schema, payload, config, CLI), a compact before/after, and migration |
+   | Broad, generated, or cross-cutting | Why the breadth is needed and where review should start |
+
 2. **Evidence** — observed validation only:
    - UI: before/after screenshot or short recording via `--attach` on publish.
    - Behavior/API/CLI: command, exit, relevant output, or failing→passing test at a named revision.
    - Docs/chore: state that runtime verification is N/A and why.
 3. **Impact and rollback** — who/what is affected; git undo **and** irreversible data or external effects. Concrete statements only.
-
-Write the body as a cover note for the reviewer: changed behavior and its effect come before implementation detail, and no section lists files one by one. Size the Summary to the change:
-
-| Change | Summary carries |
-|---|---|
-| Small or obvious | One paragraph |
-| Feature, bug fix, or refactor | Changed behavior and effect; root cause or a non-obvious approach when relevant |
-| Contract or breaking change | The affected surface (API, schema, payload, config, CLI), a compact before/after, and migration |
-| Broad, generated, or cross-cutting | Why the breadth is needed and where review should start |
-
-### Title
-
-Follow the repo's convention from `git log`. The title names the dominant change of the whole branch diff, not the latest commit. Use a concrete subject, never `update`, `cleanup`, `misc`, or `address feedback`. On a refresh, keep the existing title only when it still describes the whole diff.
 
 ### Evidence rules
 
@@ -91,6 +86,10 @@ Follow the repo's convention from `git log`. The title names the dominant change
 | Not applicable | No runtime surface; do not invent one |
 
 A missing screenshot does not invalidate a verification that already ran. Do not claim before/after UI proof unless the GitHub asset is present.
+
+## Title
+
+Follow the repo's convention from `git log`. The title names the dominant change of the whole branch diff, not the latest commit. Use a concrete subject, never `update`, `cleanup`, `misc`, or `address feedback`. On a refresh, keep the existing title only when it still describes the whole diff.
 
 ## Visuals
 

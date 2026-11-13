@@ -30,7 +30,7 @@ This runs on Claude Code only: `link.sh` publishes the folder to every harness, 
 ## Verdict
 
 - **keep**: `Δ` is clearly positive on at least one branch, the with-arm passes, and sabotage goes red.
-- **patch**: the with-arm fails a case, `skill-fired` fails (the description misses that phrasing), or `skill-stays-quiet` fails (the description fires on the near miss). Fix it and run again. Before that rerun, write one _holdout_ case with a phrasing you did not look at while patching, and report its score on its own line in `VERDICT.md`. Cases you patched against are fit to the patch; a patch that passes them and fails the holdout tuned the skill to the graders.
+- **patch**: the with-arm fails a case, `skill-fired` fails (the description misses that phrasing), or `skill-stays-quiet` fails (the description fires on the near miss). Before editing the skill, write one _holdout_ case from a phrasing the failing cases do not use, and leave it out of the edits. Fix the skill and run again; mark the holdout row `(holdout)` in the step 6 table. Cases you patched against are fit to the patch; a patch that passes them and fails the holdout tuned the skill to the graders.
 - **kill**: `Δ` is zero on every branch. The model already does this, so the skill is a no-op on this model.
 
 With three runs per arm, read a `Δ` under 0.1 as zero, and discount a grader that matches the skill's own vocabulary: the bare model cannot pass it.

@@ -9,7 +9,7 @@ Read after `claude plugin eval --help`. This holds what the help text and a firs
 | Gate (checks before an action) | The action, phrased as the operator would, with the flaw planted in a fixture | `regex` over a file holding the outcome | The flaw survives |
 | Generator (produces a file) | The request plus its inputs | `regex` over the file; `llm` only for short output | A required part is missing |
 | Reference (facts on demand) | A question only the skill answers | `regex` over `last_message` | The answer takes the model's default |
-| Over-trigger guard | A near miss the skill must leave alone | `regex` showing the good content survived | The skill damages it |
+| Over-trigger guard (near miss) | A prompt that belongs to a sibling skill or to none | `skill-stays-quiet`, plus a `regex` showing a fixture survived when there is one | The skill fires or damages the fixture |
 
 Phrase prompts the way the operator types them and leave the skill's name out, so `skill-fired` tests the description.
 

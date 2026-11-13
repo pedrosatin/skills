@@ -196,18 +196,17 @@ Follow `../pr-description/SKILL.md` in **draft** mode again so `<worktree>/.scra
 3. Run `git push origin <branch>`.
 4. Follow `../pr-description/SKILL.md` in **publish** mode: create or edit the PR for this head with `--body-file <worktree>/.scratch/pr-description/body.md` and `--attach` for any temp Evidence media. Prefer edit when an open PR for the head already exists.
 5. If main already contains the feature tree from an earlier squash of the same branch, remove the duplicate history with `git rebase --onto origin/main <old-commit> <branch>`. Confirm identical trees with `git rev-parse <new>^{tree} <old>^{tree}`, then run `git push --force-with-lease`. Force push only your own unmerged branch after checking tree equality. Refresh the PR body via `pr-description` publish if the push rewrote history.
-6. Wait for the PR's checks on the pushed head before merging. Use the harness's PR watch tool when it has one; otherwise run `gh-axi pr checks <N> --watch --fail-fast`. It exits 0 when every check passed and 1 when a check failed or none were reported; on exit 1, `gh-axi pr view <N> --checks` tells failed from none. Then read what review bots posted: `gh-axi pr view <N> --reviews --comments`. Bots often comment after CI goes green, so read once more after the checks pass.
+6. Wait for the PR's checks on the pushed head before merging. Use the harness's PR watch tool when it has one; otherwise run `gh-axi pr checks <N> --watch --fail-fast`. It exits 0 when every check passed and 1 when a check failed or none were reported; on exit 1, `gh-axi pr view <N> --checks` tells failed from none. Checks take a few seconds to register after a push, so "none" counts only when `gh-axi run list --commit <head-sha>` lists no run and `.github/workflows/` has no workflow for pull requests; otherwise wait and run the checks command once more. After the checks finish, read what reviewers and review bots posted with `gh-axi pr view <N> --full --reviews --comments`; bots often post after CI turns green. Last, read the gates and the head with `gh-axi pr view <N> --fields isDraft,reviewDecision,mergeStateStatus,headRefOid`.
 
    | State | Action |
    |---|---|
-   | Checks passed, no new review findings | Go to the merge |
-   | A check failed | Read `gh-axi run view <run-id> --log-failed` and state the cause before editing ("fails because X, which Y triggers"). Fix it through a step 4 correction subagent with the log excerpt, then run 4a and 4b, push, and wait again |
-   | A bot or reviewer finding | Fix real blocking and important findings the same way. Record false positives and minor ones in the iteration report, and point a false positive at `/review-lesson` |
-   | No checks reported | Record that the PR has no CI and go to the merge; item 9 still watches main |
-   | Only human gates remain (required review, approval, draft) | Stop and report the gate. Never wait on it, and never pass `--admin` |
+   | A check failed | Read `gh-axi run view <run-id> --log-failed` and state the cause before editing ("fails because X, which Y triggers"). Fix it through a step 4 correction subagent with the log excerpt, run 4a and 4b, repeat items 1 through 4 of this step, and wait again |
+   | A reviewer or bot finding | Fix real blocking and important findings the same way. Record false positives and minor ones in the iteration report, and point a false positive at `/review-lesson` |
+   | The PR is a draft, or `reviewDecision` or `mergeStateStatus` shows a required review, approval, or other human gate | Stop and report the gate. Never wait on it, and never pass `--admin` |
+   | Checks passed, or the PR has no CI, with no open finding and no human gate | Record the `headRefOid` as `<checked-sha>` (and, without CI, that the PR has none; item 9 still watches main), then go to item 7 |
 
-   Allow two fix rounds per failing check. When the same check fails a third time, stop and escalate with the log excerpt.
-7. With merge authorization, run `gh-axi pr merge <N> --squash --delete-branch --match-head-commit <checked-sha> --subject "... (#N)" --body "..."`, where `<checked-sha>` is the head whose checks passed in item 6. Set the subject and body explicitly. Run publication-hygiene on that subject/body before merging.
+   Allow two fix rounds per failing check or recurring finding. When the same one comes back a third time, stop and escalate with the log excerpt or the finding.
+7. With merge authorization, run `gh-axi pr merge <N> --squash --delete-branch --match-head-commit <checked-sha> --subject "... (#N)" --body "..."`, where `<checked-sha>` is the head recorded in item 6. Set the subject and body explicitly. Run publication-hygiene on that subject/body before merging.
 8. Clean up with `git pull --ff-only` in the main repo, `git worktree remove --force <worktree>`, and `git branch -D <branch>`. Delete any remaining temp Evidence media that was already confirmed on GitHub.
 9. If main runs CI, wait for the merge run (`gh-axi run list`) and require it to pass before step 6. On failure, stop and report the run to the operator. Record migrations and secrets not covered by CI as follow-up work.
 
