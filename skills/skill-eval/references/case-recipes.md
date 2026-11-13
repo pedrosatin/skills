@@ -27,6 +27,19 @@ input_match: '"skill"\s*:\s*"(?:[\w-]+:)?<skill-name>"'
 ---
 ```
 
+A near-miss case adds the inverse, scored in both arms. Its `Δ` stays near zero by design: it guards precision and adds nothing to the skill's lift. Save it as `graders/skill-stays-quiet.md`:
+
+```md
+---
+type: tool_used
+tool: Skill
+input_match: '"skill"\s*:\s*"(?:[\w-]+:)?<skill-name>"'
+max: 0
+min: 0
+arm: both
+---
+```
+
 Grade state with a file. There are no custom-code graders, and `file_exists` and `target: files` see only files created during the run. Ask for the outcome in a named file and point a `regex` at it:
 
 ```md
