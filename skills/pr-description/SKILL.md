@@ -23,7 +23,7 @@ Infer from the operator's wording. Bare `/pr-description` with no publish verb a
 ## Draft
 
 1. Read the repo PR template (for example `.github/PULL_REQUEST_TEMPLATE.md`) and language conventions. Map onto the template when present.
-2. Collect the diff (`git diff <base>...<head>`), commits, and **observed** checks from the caller (commands, exits, notes, temp media paths). Do not invent results.
+2. Collect the diff (`git diff <base>...<head>`), commits, and **observed** checks from the caller (commands, exits, notes, temp media paths). Do not invent results. On a refresh, write from the current full diff and describe the PR as it now stands; review rounds and the order of fixes stay out of the body.
 3. Write the body to `<repo>/.scratch/pr-description/body.md` on the checkout that owns the branch diff (often a feature worktree). This path is ephemeral draft material, not the issue tracker — specs and tickets stay on the primary worktree per `docs/agents/issue-tracker.md`. Do not commit this file.
 4. Apply `../unslop-br/SKILL.md` for PT-BR prose, or `../humanizer/SKILL.md` for English. Keep code identifiers and quoted material intact. Follow `../publication-hygiene/SKILL.md` for provenance in the body.
 5. Report the body path and which Evidence claims are observed vs planned vs N/A.
@@ -52,9 +52,17 @@ Partial create failures matter: `pr create` can open the PR and still fail on an
 
 ## Body shape
 
-Default sections when the repo has no template (headings in the project language):
+Write the body as a cover note for the reviewer: changed behavior and its effect come before implementation detail, and no section lists files one by one. Default sections when the repo has no template (headings in the project language):
 
-1. **Summary** — problem and resulting behavior. Add a visual only when it beats a short paragraph (see Visuals). Docs/config-only PRs may stay prose-only.
+1. **Summary** — problem and resulting behavior, sized to the change. Add a visual only when it beats a short paragraph (see Visuals). Docs/config-only PRs may stay prose-only.
+
+   | Change | Summary carries |
+   |---|---|
+   | Small or obvious | One paragraph |
+   | Feature, bug fix, or refactor | Changed behavior and effect; root cause or a non-obvious approach when relevant |
+   | Contract or breaking change | The affected surface (API, schema, payload, config, CLI), a compact before/after, and migration |
+   | Broad, generated, or cross-cutting | Why the breadth is needed and where review should start |
+
 2. **Evidence** — observed validation only:
    - UI: before/after screenshot or short recording via `--attach` on publish.
    - Behavior/API/CLI: command, exit, relevant output, or failing→passing test at a named revision.
@@ -78,6 +86,10 @@ Default sections when the repo has no template (headings in the project language
 | Not applicable | No runtime surface; do not invent one |
 
 A missing screenshot does not invalidate a verification that already ran. Do not claim before/after UI proof unless the GitHub asset is present.
+
+## Title
+
+Follow the repo's convention from `git log`. The title names the dominant change of the whole branch diff, not the latest commit. Use a concrete subject, never `update`, `cleanup`, `misc`, or `address feedback`. On a refresh, keep the existing title only when it still describes the whole diff.
 
 ## Visuals
 

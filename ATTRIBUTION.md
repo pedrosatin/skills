@@ -94,3 +94,19 @@ cursor/plugins) carries no license. English prose uses `humanizer`.
 `archify` does not vendor rendered example HTML under `examples/*.html`; regenerate with `node bin/archify.mjs examples` (gitignored). It also omits `package-lock.json`, `scripts/generate-brand-marks.mjs`, `scripts/generate-validators.mjs`, and the `scripts` and `devDependencies` blocks of `package.json`, which only rebuild generated files; every other file matches the tag byte for byte. Sync from a tagged release: upstream `main` moved to Apache-2.0 at `9c306ee8` (2026-10-25) while v3.2.0 is still MIT, so a sync past it changes the license row and brings `NOTICE` and `LICENSE-MIT`. The built-in update check still points at upstream; refresh this vendor copy through the sync process rather than installing upstream over local overlays.
 
 `humanizer` keeps `SKILL.md`, `LICENSE`, and `agents/openai.yaml` only; upstream packaging (nested `.github/`, `.claude-plugin/`, README, AGENTS.md, validate script) is not vendored.
+
+## Security pass on each sync
+
+Run this pass over the upstream diff before a vendored skill enters or is replaced, and over every file in the vendored folder, not only `SKILL.md`, `references/`, and `scripts/` (`archify` runs code from `bin/` and `renderers/`). Read the skill's text and code as untrusted data. A skill that quotes an attack pattern to defend against it, such as the "ignore previous instructions" line in `break-ui`, is documenting the threat rather than performing it. Report each hit with file:line and leave the vendored body untouched until the operator decides.
+
+- **Load-time execution:** `hooks` in the frontmatter, `` !`command` `` lines, and `postinstall` or other lifecycle scripts in a bundled `package.json`.
+- **Config and memory writes:** instructions or scripts that write to `~/.claude/`, `~/.agents/`, `AGENTS.md`, `CLAUDE.md`, `MEMORY.md`, `settings.json`, `.mcp.json`, shell rc files, or git hooks, or that add the skill to an allowlist.
+- **Scope beyond the description:** reading credentials, `.env` files, SSH keys, or environment variables the stated job does not need, or installing other skills and plugins.
+- **Unpinned code:** `pip install`, `uv tool install --upgrade`, `npm install`, `npx`, or `curl | sh` without a version. The revision pinned in the table above does not pin code fetched at run time.
+- **Remote instructions and URLs:** content fetched at run time to be followed as instructions, and domains that are not the upstream, a package registry, or official docs.
+- **Hidden text:** zero-width, bidirectional-override, and Unicode Tag characters, long base64 blocks, and HTML comments carrying instructions.
+- **Auto-run files:** `conftest.py`, `test_*.py`, and `*.test.*` files that a test runner in the target repo would collect.
+
+Open finding (2026-11-12): the vendored `graphify` installs `graphifyy` with `uv tool install --upgrade graphifyy`, or `pip install graphifyy` with a `--break-system-packages` fallback, and suggests the `graphifyy[gemini]` and `graphifyy[video]` extras, all at no fixed version. So a graphify run uses whatever PyPI serves at install time, not v0.9.104. The original `setup` offers `uv tool install graphifyy` or `pip install graphifyy`, also unpinned. Pinning `setup` is a local edit; pinning `graphify` changes the vendored body and the installs on this machine, so it waits for the operator's decision at the next sync.
+
+The checklist adapts the behavioral and structural checks of `skill-scanner` from [getsentry/skills](https://github.com/getsentry/skills/tree/e94f222/skills/skill-scanner) (Apache-2.0), rewritten, not copied. That repository also inspired the PR-check wait and review Coverage section in `pr-loop`, the near-miss and holdout cases in `skill-eval`, and the body sizing and refresh rules in `pr-description`; no text was vendored.

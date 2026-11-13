@@ -9,6 +9,11 @@ That upstream skill credits Dex Horthy / HumanLayer's
 (MIT © 2026 HumanLayer) for the visual-summary menu. This package points at the
 local `show-me` skill for visuals instead of vendoring that menu verbatim.
 
+The cover-note framing, the Summary sizing table, the title rules, and the
+refresh rule are rewritten from ideas in Sentry's
+[`pr-writer`](https://github.com/getsentry/skills/tree/e94f222/skills/pr-writer)
+(Apache-2.0); no text was copied.
+
 Local additions: draft vs publish modes, `gh-axi` create/edit with idempotent
 head lookup, GitHub-only media via `--attach`, failure taxonomy for
 execution/capture/upload, and contracts with `pr-loop` and `publication-hygiene`.
