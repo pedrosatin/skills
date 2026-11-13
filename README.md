@@ -47,7 +47,7 @@ from their respective skill roots via the created symlinks.
 - Node.js 20 or later for the bundled scripts (`setup`, `board`, `clean-crap`,
   `archify`). `clean-crap` also needs `npm ci --prefix skills/clean-crap` once.
 - [`gh-axi`](https://github.com/kunchenguid/gh-axi) for the GitHub skills
-  (`babysit-prs`, `pr-description`, `pr-loop`); `pr-description` attachments
+  (`babysit-prs`, `pr-description`, `pr-loop`, `pull-backlog`); `pr-description` attachments
   need `gh` 2.99.0 or later.
 - Claude Code for `skill-eval`, which runs `claude plugin eval`.
 - Optional: Graphify (`uv tool install graphifyy`) for `graphify` and the
@@ -66,6 +66,7 @@ Original skills:
 - `pr-description`: drafts a local PR body from observed validation, or creates/edits the remote PR with evidence attachments (adapted from Matt Pocock's `pr`; see `ATTRIBUTION.md`).
 - `babysit-prs`: reviews and merges open PRs.
 - `pr-loop`: delivers backlog items with implementation, product verification, review, and corrections by subagents.
+- `pull-backlog`: surveys the backlog and delivers the ready tickets through `pr-loop`, two at a time, merging each PR the reviewer approves.
 - `clean-crap`: gates delivery on a CRAP threshold (cyclomatic complexity joined with LCOV coverage) via a bundled JS/TS CLI.
 - `validate-agent-config`: validates instruction entry points and skill configuration consistency.
 - `setup`: initializes local specs, tickets, and the HTML Project Hub.
