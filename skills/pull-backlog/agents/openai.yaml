@@ -1,0 +1,5 @@
+interface:
+  display_name: "Pull Backlog"
+  short_description: "Deliver ready tickets through merge on its own"
+policy:
+  allow_implicit_invocation: true

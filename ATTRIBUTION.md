@@ -84,7 +84,7 @@ as a dash replacement).
 
 Original skills (MIT, this repo): unslop-br, publication-hygiene, babysit-prs,
 pr-loop, validate-agent-config, setup, board, clean-crap, skill-eval,
-prune-agent-config, review-lesson, goal-brief. `pr-description` is original
+prune-agent-config, review-lesson, goal-brief, pull-backlog. `pr-description` is original
 orchestration with attributed upstream body/evidence lineage (table above).
 `setup` is original except for its tracker and domain templates (table above).
 
