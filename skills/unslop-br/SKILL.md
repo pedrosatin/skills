@@ -9,9 +9,9 @@ Edite e escreva textos eliminando vícios de redação de modelos de linguagem, 
 
 ## Processo de auditoria e reescrita
 
-1. **Varredura de padrões.** Identifique no texto palavras infladas, gerundismos de cauda, travessões, estruturas de concessão ("mas"), falsas dicotomias ("não é X, é Y") e conectivos de preenchimento.
+1. **Varredura de padrões.** Identifique no texto palavras infladas, gerundismos de cauda, travessões, contrastes artificiais, prosa picotada, falsas dicotomias ("não é X, é Y") e conectivos de preenchimento.
 2. **Reescrita com mecanismos concretos.** Substitua adjetivos vagos e impressões subjetivas por regras de arquitetura, tipos de dados, código ou o mecanismo exato de engenharia. Inclua um número só quando a medida, a fonte citada ou o operador o tiver fornecido. Inventar métrica é pior do que deixar o valor de fora.
-3. **Ajuste de ritmo e tom.** Varie a extensão dos períodos. Elimine fórmulas de abertura genéricas e encerramentos protocolares. Assuma postura técnica fundamentada em critérios objetivos.
+3. **Ajuste de ritmo e tom.** Recomponha orações da mesma ideia com conectivos e vírgulas conforme a sintaxe, reservando o ponto final para uma pausa ou mudança de foco. Elimine fórmulas de abertura genéricas e encerramentos protocolares. Assuma postura técnica fundamentada em critérios objetivos.
 4. **Auto-auditoria estrita.** Verifique se o texto final contém algum termo da lista de vocabulário proibido, travessões ou o padrão mecânico de tópicos com rótulo em negrito. Se encontrar, corrija antes de finalizar.
 
 ## Clareza técnica e substância
@@ -20,7 +20,7 @@ Remover vícios é apenas metade do processo. O texto precisa carregar conteúdo
 
 - **Diga o que o sistema faz, não a sensação que ele causa.** Substitua "uma interface intuitiva e fluida" por um mecanismo observável: "a rota responde sem recarregar o navegador". Um número entra só com origem (medida, citação, operador). Sem origem, descreva o mecanismo e omita o valor.
 - **Assuma critérios objetivos de decisão.** Evite falsa neutralidade com listas genéricas de prós e contras sem conclusão. Apresente os trade-offs arquiteturais e o critério técnico de escolha.
-- **Varie o tamanho das frases.** Alterne frases curtas e diretas com períodos explicativos bem articulados. Evite o padrão monótono de frases com o mesmo tamanho.
+- **Encadeie o raciocínio.** Ligue explicação, causa, condição e consequência no mesmo período quando pertencem à mesma ideia. Varie a extensão conforme o assunto, sem metas de palavras ou limites de vírgulas. Na leitura do parágrafo, recomponha sequências de frases curtas que soem como uma lista; use conectivos que expressem a relação, em vez de trocar pontos por vírgulas mecanicamente.
 - **Prefira a voz ativa.** Indique claramente o ator ou componente responsável pela ação. Troque "as requisições são validadas" por "o middleware valida o payload da requisição".
 - **Corte termos redundantes.** Se uma frase pode ser removida sem alterar o conteúdo técnico ou a instrução ao leitor, remova a frase por completo.
 
@@ -41,7 +41,7 @@ Remover vícios é apenas metade do processo. O texto precisa carregar conteúdo
   *Correto*: "Comparativo de modelo de dados e consistência entre PostgreSQL e MongoDB."
 
 ### 3. Concessões artificiais e moralismos
-- **Proibido "'Afirmação', mas..." e "Faz X, mas não faz Y".** Descreva as capacidades e o escopo de atuação de forma direta e afirmativa.
+- **Corte contrastes de enfeite.** Use `mas` e outros conectivos quando houver oposição real ou uma ressalva necessária para entender o fato. Preserve essa relação na mesma frase; remova apenas a fórmula retórica sem conteúdo.
 - **Proibido "Não existe bala de prata / solução universal" e "No final do dia".** Evite formulações proverbiais ou frases de efeito moralistas. Apresente os limites técnicos da solução.
 - **Proibido metáforas de jogo e enchimentos.** Elimine termos como "mudar as regras do jogo", "virada de chave", "game changer", "na prática", "no mundo real" e "no dia a dia".
 
@@ -119,8 +119,8 @@ A mesma regra vale para "mostrou-se", "acabou sendo", "se deu", "passou a ser" e
 
 ## Pontuação, tipografia e formatação
 
-- **Proibição total de travessão.** Proibido o uso de travessão ("—"), meia-risca ("–") e de hífen espaçado (" - ") no meio de frases simulando travessão. Para pausas ou separação de orações, utilize ponto final ou vírgula.
-- **Sem parênteses como muleta.** Não substitua travessões por parênteses no meio de frases explicativas. Divida a frase em dois períodos independentes.
+- **Proibição total de travessão.** Proibido o uso de travessão ("—"), meia-risca ("–") e de hífen espaçado (" - ") no meio de frases simulando travessão. Reescreva a oração com conectivos e vírgulas conforme a sintaxe; use ponto final quando houver mudança de foco.
+- **Sem parênteses como muleta.** Integre explicações ao período com a relação sintática adequada. Parênteses continuam cabendo para siglas e traduções; explicações ligadas à ideia principal não precisam virar frases independentes.
 - Em PT-BR, a proibição de travessão e de parêntese-muleta vale mesmo com a skill humanizer carregada.
 - **Uso restrito de dois-pontos (:)**:
   - Permitido apenas antes de listas diretas, trechos de código ou definições pontuais.
@@ -146,3 +146,4 @@ Ao revisar ou gerar qualquer texto técnico em Português Brasileiro, considere 
 4. Títulos e subtítulos estão em sentence case e sem dois-pontos.
 5. As descrições técnicas apontam mecanismos de engenharia, parâmetros, código ou dados mensuráveis com origem (medida, citação ou operador), sem abstrações, sensações subjetivas nem números inventados.
 6. Nenhum verbo de atribuição vago ("fixou", "cravou", "mostrou-se") descreve uma decisão sem ator e sem critério.
+7. O parágrafo desenvolve o raciocínio com orações encadeadas, sem pontos finais em série separando causa, explicação ou consequência da mesma ideia. A revisão preserva a sintaxe e evita períodos que acumulem assuntos distintos.
