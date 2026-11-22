@@ -31,6 +31,9 @@ When `/setup` scaffolds `.scratch/`, create it on the primary worktree, not on a
   - `blocked`: blocked by unresolved dependencies or missing information
   - `resolved`: fully implemented, tested, and verified
   - `wontfix`: closed without action
+- Date fields sit under Status as `YYYY-MM-DD` (both `**Updated:** x` / `Updated: x` and `**Resolved:** x` / `Resolved: x` are accepted):
+  - `Updated:` last status change (set on creation, refreshed on every status change)
+  - `Resolved:` set once when the ticket becomes `resolved` (or another done status such as `closed` / `wontfix`)
 - Blocking relationships are declared near the top:
   `**Blocked by:** 01, 02` or `**Blocked by:** None (can start immediately)`
 - Acceptance criteria are declared as checkboxes:
@@ -60,8 +63,8 @@ When implementing a ticket, dispatch a dedicated subagent for the vertical slice
 
 ### Claim
 
-Before starting, set `Status: claimed` in the ticket file on the primary worktree.
+Before starting, set `Status: claimed` and `**Updated:**` to today's date in the ticket file on the primary worktree.
 
 ### Resolve
 
-Check all acceptance criteria (`- [x]`), set `Status: resolved`, and refresh the Project Hub on the primary worktree.
+Check all acceptance criteria (`- [x]`), set `Status: resolved`, set `**Updated:**` and `**Resolved:**` to today's date, and refresh the Project Hub on the primary worktree.

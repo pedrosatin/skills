@@ -44,6 +44,39 @@ export function columnFor(rawStatus, hasUnresolvedBlocker = false) {
 }
 
 /**
+ * Parse a ticket date field (`Updated` / `Resolved`) as `YYYY-MM-DD`, or null when
+ * missing or not a real calendar day (e.g. `2026-02-30`). Accepts both
+ * `**Updated:** x` and `Updated: x`, same as Status.
+ */
+export function parseTicketDate(raw) {
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  const m = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  if (
+    dt.getUTCFullYear() !== year ||
+    dt.getUTCMonth() !== month - 1 ||
+    dt.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}
+
+function matchTicketField(content, fieldName) {
+  const re = new RegExp(
+    `(?:\\*\\*${fieldName}:\\*\\*|${fieldName}:)[ \\t]*([^\\n]*)`,
+    'i',
+  );
+  const match = content.match(re);
+  return match ? match[1].trim() : null;
+}
+
+/**
  * Parse one ticket Markdown file. Returns null if it cannot be read.
  * `relativeTo` sets the base for `relPath` (defaults to the file's directory).
  */
@@ -92,12 +125,17 @@ export function parseTicketFile(filePath, featureName, relativeTo = path.dirname
   const buildMatch = content.match(/(?:\*\*What to build:\*\*|What to build:)\s*([^\n]+)/i);
   if (buildMatch) whatToBuild = buildMatch[1].trim();
 
+  const updated = parseTicketDate(matchTicketField(content, 'Updated'));
+  const resolved = parseTicketDate(matchTicketField(content, 'Resolved'));
+
   return {
     id,
     slug: filename,
     feature: featureName,
     title,
     rawStatus: status,
+    updated,
+    resolved,
     blockedBy,
     criteria,
     whatToBuild,

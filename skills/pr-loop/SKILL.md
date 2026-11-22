@@ -213,7 +213,7 @@ Follow `../pr-description/SKILL.md` in **draft** mode again so `<worktree>/.scra
 ## Step 6, next item
 
 - Write versioned ADRs under `docs/adr/` in the correction commit when the item settled a decision that qualifies.
-- Update local tracker status on the **primary worktree** (`<primary>/.scratch/<feature>/issues/`), not only inside the feature worktree. Do not commit `.scratch/` tracker files unless the target repo versions them. Refresh the Project Hub: resolve `<setup>` as the `setup` folder next to this skill, then `node <setup>/scripts/generate-hub.mjs <primary>`. See `docs/agents/issue-tracker.md` (Scratch root). Draft PR bodies under the feature worktree remain ephemeral.
+- Update local tracker status on the **primary worktree** (`<primary>/.scratch/<feature>/issues/`), not only inside the feature worktree: set `**Updated:**` to today on each status change, and set `**Resolved:**` to today when the ticket becomes `resolved`. Do not commit `.scratch/` tracker files unless the target repo versions them. Refresh the Project Hub: resolve `<setup>` as the `setup` folder next to this skill, then `node <setup>/scripts/generate-hub.mjs <primary>`. See `docs/agents/issue-tracker.md` (Scratch root). Draft PR bodies under the feature worktree remain ephemeral.
 - Report the iteration briefly: scope, PR/commit, test counts, and recorded follow-ups.
 - Return to step 0 for the next item.
 
