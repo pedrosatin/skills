@@ -67,13 +67,30 @@ export function parseTicketDate(raw) {
   return `${m[1]}-${m[2]}-${m[3]}`;
 }
 
+/** Drop fenced code blocks (``` / ~~~) so examples inside them are not parsed as fields. */
+function stripFencedBlocks(content) {
+  return String(content).replace(/^([`~]{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, '');
+}
+
+/** Strip single-line HTML comments from a field value before date validation. */
+function stripHtmlComments(value) {
+  return String(value).replace(/<!--.*?-->/g, '').trim();
+}
+
+/**
+ * Match a ticket metadata field at the start of a line (`**Name:**` or `Name:`).
+ * Fenced blocks are ignored. Used for Updated / Resolved; Status and Blocked by
+ * keep their own matchers so their historical behaviour stays unchanged.
+ */
 function matchTicketField(content, fieldName) {
+  const searchable = stripFencedBlocks(content);
   const re = new RegExp(
-    `(?:\\*\\*${fieldName}:\\*\\*|${fieldName}:)[ \\t]*([^\\n]*)`,
-    'i',
+    `^(?:\\*\\*${fieldName}:\\*\\*|${fieldName}:)[ \\t]*([^\\n]*)`,
+    'im',
   );
-  const match = content.match(re);
-  return match ? match[1].trim() : null;
+  const match = searchable.match(re);
+  if (!match) return null;
+  return stripHtmlComments(match[1]);
 }
 
 /**

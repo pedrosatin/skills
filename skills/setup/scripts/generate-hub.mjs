@@ -1658,7 +1658,7 @@ const html = `<!DOCTYPE html>
     }
 
     async function copyAgentPrompt(id, title, relPath) {
-      const prompt = \`Implement ticket \${id} (\${title}): read the requirements and acceptance criteria in \${relPath}, implement the change, validate the tests, and set the file status to resolved when complete. Follow the project's language conventions for generated prose.\`;
+      const prompt = \`Implement ticket \${id} (\${title}): read the requirements and acceptance criteria in \${relPath}, implement the change, validate the tests, and when complete set the file status to resolved, refresh **Updated:** and add **Resolved:** with today's date (YYYY-MM-DD). Follow the project's language conventions for generated prose.\`;
       const ok = await copyText(prompt);
       if (ok) {
         showToast('Prompt do agente copiado para a área de transferência!', false);

@@ -31,9 +31,9 @@ When `/setup` scaffolds `.scratch/`, create it on the primary worktree, not on a
   - `blocked`: blocked by unresolved dependencies or missing information
   - `resolved`: fully implemented, tested, and verified
   - `wontfix`: closed without action
-- Date fields sit under Status as `YYYY-MM-DD` (both `**Updated:** x` / `Updated: x` and `**Resolved:** x` / `Resolved: x` are accepted):
+- Date fields sit near Status as `YYYY-MM-DD` (both `**Updated:** x` / `Updated: x` and `**Resolved:** x` / `Resolved: x` are accepted):
   - `Updated:` last status change (set on creation, refreshed on every status change)
-  - `Resolved:` set once when the ticket becomes `resolved` (or another done status such as `closed` / `wontfix`)
+  - `Resolved:` set once when the ticket becomes `resolved` (or `closed`; `wontfix` stays in the backlog column)
 - Blocking relationships are declared near the top:
   `**Blocked by:** 01, 02` or `**Blocked by:** None (can start immediately)`
 - Acceptance criteria are declared as checkboxes:
