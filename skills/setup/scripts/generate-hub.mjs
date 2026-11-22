@@ -1008,6 +1008,7 @@ const html = `<!DOCTYPE html>
     }
     .card-id { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); }
     .card-title { font-size: 0.92rem; font-weight: 600; color: #fff; line-height: 1.35; }
+    .card-updated { font-size: 0.72rem; color: var(--text-muted); }
     .card-blockers { display: flex; flex-wrap: wrap; gap: 0.35rem; }
     .blocker-chip {
       font-size: 0.7rem;
@@ -1584,7 +1585,8 @@ const html = `<!DOCTYPE html>
             <span class="card-id">#\${escapeHtml(t.id)}</span>
           </div>
           <div class="card-title">\${escapeHtml(t.title)}</div>
-          
+          \${t.updated ? \`<div class="card-updated">Atualizado: \${escapeHtml(t.updated)}</div>\` : ''}
+
           \${t.blockersDetail.length > 0 ? \`
             <div class="card-blockers">
               \${t.blockersDetail.map(b => \`
@@ -1656,7 +1658,7 @@ const html = `<!DOCTYPE html>
     }
 
     async function copyAgentPrompt(id, title, relPath) {
-      const prompt = \`Implement ticket \${id} (\${title}): read the requirements and acceptance criteria in \${relPath}, implement the change, validate the tests, and set the file status to resolved when complete. Follow the project's language conventions for generated prose.\`;
+      const prompt = \`Implement ticket \${id} (\${title}): read the requirements and acceptance criteria in \${relPath}, implement the change, validate the tests, and when complete set the file status to resolved and set **Updated:** and **Resolved:** to today's date (YYYY-MM-DD), adding the lines if missing. Follow the project's language conventions for generated prose.\`;
       const ok = await copyText(prompt);
       if (ok) {
         showToast('Prompt do agente copiado para a área de transferência!', false);

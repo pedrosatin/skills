@@ -24,6 +24,7 @@ If usage limits, missing subagent tools, or a persistent subagent failure preven
 ## Step 0, prepare the item
 
 - Take the items from the operator's list or the target repo's local tracker on the **primary worktree** (`<primary>/.scratch/<feature>/issues/`). Confirm the list and order before the first iteration.
+- When claiming a local ticket, set `Status: claimed` and `**Updated:**` to today's date (`YYYY-MM-DD`) on the primary worktree (see `docs/agents/issue-tracker.md`, Claiming and resolving tickets).
 - Run `git fetch origin` and create a clean worktree with `git worktree add -b feat/<slug> ~/.cache/worktrees/<slug> origin/main`. If a leftover worktree exists from a previous iteration, enter it and inspect `git status` and `git log --oneline -3`.
 - Discover the validation commands in each affected package.json (test, typecheck, lint). Include them in every subagent prompt, including a possible cleaner correction pass.
 - Record the iteration base SHA before implementation; keep it fixed through correction commits.
@@ -213,7 +214,7 @@ Follow `../pr-description/SKILL.md` in **draft** mode again so `<worktree>/.scra
 ## Step 6, next item
 
 - Write versioned ADRs under `docs/adr/` in the correction commit when the item settled a decision that qualifies.
-- Update local tracker status on the **primary worktree** (`<primary>/.scratch/<feature>/issues/`), not only inside the feature worktree. Do not commit `.scratch/` tracker files unless the target repo versions them. Refresh the Project Hub: resolve `<setup>` as the `setup` folder next to this skill, then `node <setup>/scripts/generate-hub.mjs <primary>`. See `docs/agents/issue-tracker.md` (Scratch root). Draft PR bodies under the feature worktree remain ephemeral.
+- Update local tracker status on the **primary worktree** (`<primary>/.scratch/<feature>/issues/`), not only inside the feature worktree: when the ticket becomes `resolved`, set `**Updated:**` and `**Resolved:**` to today's date (`YYYY-MM-DD`); when it becomes `blocked`, set `**Updated:**` to today. Do not commit `.scratch/` tracker files unless the target repo versions them. Refresh the Project Hub: resolve `<setup>` as the `setup` folder next to this skill, then `node <setup>/scripts/generate-hub.mjs <primary>`. See `docs/agents/issue-tracker.md` (Scratch root). Draft PR bodies under the feature worktree remain ephemeral.
 - Report the iteration briefly: scope, PR/commit, test counts, and recorded follow-ups.
 - Return to step 0 for the next item.
 

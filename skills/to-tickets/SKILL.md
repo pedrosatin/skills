@@ -73,7 +73,7 @@ For local tracking, refresh the Project Hub with setup's generator: resolve `<se
 
 When an agent is asked to implement tickets from this tracker:
 - Prefer executing each ticket in a dedicated subagent with a fresh context window.
-- The main agent orchestrates: picks the unblocked ticket from the frontier, reviews the subagent's changes against criteria, marks it `resolved`, and refreshes the Project Hub (setup's generate-hub).
+- The main agent orchestrates: picks the unblocked ticket from the frontier, reviews the subagent's changes against criteria, marks it `resolved`, sets `**Updated:**` and `**Resolved:**` to today (`YYYY-MM-DD`), adding the lines if missing, and refreshes the Project Hub (setup's generate-hub).
 
 <local-ticket-template>
 
@@ -84,6 +84,7 @@ When an agent is asked to implement tickets from this tracker:
 **Blocked by:** the numbers/titles of the tickets that gate this one, or "None (can start immediately)".
 
 **Status:** ready-for-agent
+**Updated:** <YYYY-MM-DD>
 
 - [ ] Acceptance criterion 1
 - [ ] Acceptance criterion 2

@@ -19,7 +19,7 @@ Done when every open ticket (not `resolved`, `wontfix`, or `closed`) has one cla
 - Read `<primary>/.scratch/STATUS.md` when present, every `<primary>/.scratch/*/issues/*.md`, and any orchestration or routing note in `.scratch/` (`orquestracao-*.md`, `agent-routing.md`). Those notes hold the operator's earlier decisions for this scope.
 - Read each ticket's `Status:` and `Blocked by:` lines. `Status:` appears as `**Status:** x` and as `Status: x`; match both and list files with neither, so no ticket is skipped. `in-progress` reads as `claimed` and `closed` as `resolved`.
 - The `ready-for-agent` label outlives its blockers: a ticket whose `Blocked by:` entries are not all `resolved` is blocked, however it is labelled.
-- STATUS.md lags the repo. Check each candidate against `origin/main` history, open and merged PRs (`gh-axi pr list`), and live worktrees. A `claimed` ticket with an open PR or a live worktree belongs to another run; with neither it is stale and counts as ready. A ticket whose acceptance criteria `main` already meets closes as `resolved`, or as `wontfix` pointing at the PR that covered it.
+- STATUS.md lags the repo. Check each candidate against `origin/main` history, open and merged PRs (`gh-axi pr list`), and live worktrees. A `claimed` ticket with an open PR or a live worktree belongs to another run; with neither it is stale and counts as ready. A ticket whose acceptance criteria `main` already meets closes as `resolved`, or as `wontfix` pointing at the PR that covered it; set `**Updated:**` to today (`YYYY-MM-DD`) when closing, and `**Resolved:**` too when it closes as `resolved` (add the lines if the ticket is missing them).
 
 ## 2. Plan the run
 
@@ -35,7 +35,7 @@ Done when `.scratch/orquestracao-<scope>.md` on the primary worktree holds the s
 Done when the first slots are `claimed` on the primary, their implementers run, and the operator has the first table.
 
 - Before every dispatch, check `git status` and `gh-axi pr list`. A run resumed after a usage limit can repeat old work in the same tree or open a duplicate PR; close the duplicate unmerged, and keep one writer per tree.
-- Set `Status: claimed`, then dispatch with the `pr-loop` step 1 prompt plus the ticket path and the validation commands.
+- Set the status to `claimed` and `**Updated:**` to today's date (`YYYY-MM-DD`), then dispatch with the `pr-loop` step 1 prompt plus the ticket path and the validation commands. On every later status change, refresh `**Updated:**`; when closing as `resolved`, also set `**Resolved:**` to today (`YYYY-MM-DD`), adding the lines if missing; `wontfix` gets only `**Updated:**`.
 - Send the operator one message in their language: a table of what started (ticket, implementer, reviewer), what waits on a blocker, and what needs them, with the specific need per ticket.
 
 ## 4. Drain
@@ -45,7 +45,7 @@ Done when no ticket is **ready**.
 - A PR opens: its reviewer runs in the same slot (`pr-loop` steps 3 to 5).
 - A merge lands: run `pr-loop` step 6 and refresh `STATUS.md` when present, then survey again, because merges unblock tickets, and fill the free slot.
 - Checks pending for 30 minutes with Actions healthy: close and reopen the PR to retrigger them.
-- A ticket that needs a decision or an external action: mark it `blocked`, note the need, and continue with the rest.
+- A ticket that needs a decision or an external action: mark it `blocked`, set `**Updated:**` to today, note the need, and continue with the rest.
 
 ## 5. Sync
 

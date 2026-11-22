@@ -6,6 +6,8 @@ column.
 **Blocked by:** None
 
 **Status:** closed
+**Updated:** 2026-11-14
+**Resolved:** 2026-11-20
 
 - [x] Closed without being resolved
 
