@@ -31,7 +31,7 @@ Summarize what you found and ask the questions needed before proceeding, one at 
 
 **A. Install and run Graphify:**
 - If the `graphify` command is **not** installed:
-  > *"Graphify is not installed in this environment. Would you like to install it with `uv tool install graphifyy` or `pip install graphifyy`? (recommended: **yes**)"*
+  > *"Graphify is not installed in this environment. Would you like to install it with `uv tool install graphifyy==0.9.104` or `pip install graphifyy==0.9.104`? (recommended: **yes**)"*
 - If `graphify-out/graph.html` does **not** exist in the repository:
   > *"Would you like to run Graphify now to map the codebase and generate the interactive graph? (recommended: **yes**)"*
   If confirmed, run `graphify .`. If the user chooses not to run it now, continue setup normally. The dashboard will indicate that the graph can be generated at any time with `/graphify`.

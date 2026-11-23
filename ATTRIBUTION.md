@@ -107,6 +107,13 @@ Run this pass over the upstream diff before a vendored skill enters or is replac
 - **Hidden text:** zero-width, bidirectional-override, and Unicode Tag characters, long base64 blocks, and HTML comments carrying instructions.
 - **Auto-run files:** `conftest.py`, `test_*.py`, and `*.test.*` files that a test runner in the target repo would collect.
 
-Open finding (2026-11-12): the vendored `graphify` installs `graphifyy` with `uv tool install --upgrade graphifyy`, or `pip install graphifyy` with a `--break-system-packages` fallback, and suggests the `graphifyy[gemini]` and `graphifyy[video]` extras, all at no fixed version. So a graphify run uses whatever PyPI serves at install time, not v0.9.104. The original `setup` offers `uv tool install graphifyy` or `pip install graphifyy`, also unpinned. Pinning `setup` is a local edit; pinning `graphify` changes the vendored body and the installs on this machine, so it waits for the operator's decision at the next sync.
+Security pass (2026-11-23): `setup` pins `graphifyy==0.9.104` in both install suggestions. The vendored `graphify` body stays without a version under the overlay policy; installs on this machine are pinned outside the repo. Pass over every file in archify, graphify, humanizer, mobile-native, break-ui, show-me, grilling, teach, to-spec, to-tickets, research, and writing-for-agents:
+
+- archify: Config and memory writes: `skills/archify/SKILL.md:137` offers to append an `[archify explainer: ...]` line to the agent's global rules file (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, or `~/.config/devin/AGENTS.md`) after the user accepts.
+- graphify: Unpinned code: `skills/graphify/SKILL.md:120`, `:126`, `:128`, `:129`, `:191`; `skills/graphify/references/add-watch.md:30` (`uv tool install` / `pip install` of `graphifyy` and the `[gemini]` / `[video]` extras, no version). Config and memory writes: `skills/graphify/references/hooks.md:10` (`graphify hook install` post-commit hook), `:26` (`graphify claude install` writes a `## graphify` section into the project's `CLAUDE.md`); pointed from `skills/graphify/SKILL.md:842`.
+- humanizer: clean.
+- mobile-native: clean.
+- break-ui: clean (`skills/break-ui/SKILL.md:36` quotes "ignore previous instructions" as a threat to flag; `skills/break-ui/CATALOG.md:26` includes a ZWJ emoji sequence as a labeled UI fixture).
+- show-me, grilling, teach, to-spec, to-tickets, research, writing-for-agents: clean.
 
 The checklist adapts the behavioral and structural checks of `skill-scanner` from [getsentry/skills](https://github.com/getsentry/skills/tree/e94f222/skills/skill-scanner) (Apache-2.0), rewritten, not copied. That repository also inspired the PR-check wait and review Coverage section in `pr-loop`, the near-miss and holdout cases in `skill-eval`, and the body sizing and refresh rules in `pr-description`; no text was vendored.
