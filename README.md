@@ -50,7 +50,7 @@ from their respective skill roots via the created symlinks.
   (`babysit-prs`, `pr-description`, `pr-loop`, `pull-backlog`); `pr-description` attachments
   need `gh` 2.99.0 or later.
 - Claude Code for `skill-eval`, which runs `claude plugin eval`.
-- Optional: Graphify (`uv tool install graphifyy`) for `graphify` and the
+- Optional: Graphify (`uv tool install graphifyy==0.9.104`) for `graphify` and the
   graph links in the Project Hub.
 
 ## Contents
